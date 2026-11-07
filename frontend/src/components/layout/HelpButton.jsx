@@ -267,7 +267,7 @@ export default function HelpButton() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-xs p-0 sm:p-4">
           <div className="flex h-[92vh] sm:h-[620px] w-full max-w-md flex-col overflow-hidden rounded-t-[2.5rem] sm:rounded-3xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-300">
             {/* Header */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-primary-800 to-primary-950 px-5 py-4 text-white shrink-0">
+            <div className="flex items-center justify-between bg-primary-800 bg-gradient-to-r from-primary-800 via-primary-700 to-primary-900 px-5 py-4 text-white shrink-0 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/20 text-white shadow-inner">
@@ -276,7 +276,7 @@ export default function HelpButton() {
                   <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-primary-900" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black tracking-wide">Customer Support</h3>
+                  <h3 className="text-sm font-black tracking-wide text-white">Customer Support</h3>
                   <p className="text-[11px] font-semibold text-emerald-300 flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     Online · Siap Membantu 24/7
@@ -287,9 +287,10 @@ export default function HelpButton() {
                 type="button"
                 onClick={() => setIsOpen(false)}
                 aria-label="Tutup Live Chat"
-                className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition"
+                className="grid h-9 w-9 place-items-center rounded-full bg-white/20 hover:bg-white/30 text-white shadow-sm ring-1 ring-white/40 transition active:scale-95 cursor-pointer"
+                title="Tutup Chat"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5 stroke-[2.5]" />
               </button>
             </div>
 

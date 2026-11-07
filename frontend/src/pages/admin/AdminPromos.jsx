@@ -189,16 +189,16 @@ export default function AdminPromos() {
         ) : (
           <div>
             {/* Desktop Table View */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+            <div className="hidden md:block overflow-x-auto scrollbar-thin">
+              <table className="w-full min-w-[780px] text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/75 text-xs font-black uppercase tracking-wider text-slate-400">
-                    <th className="py-4 pl-6 pr-3">Preview Banner</th>
-                    <th className="px-4 py-4">Tag &amp; Judul</th>
-                    <th className="px-4 py-4">Deskripsi / Link</th>
-                    <th className="px-4 py-4 text-center">Urutan</th>
-                    <th className="px-4 py-4 text-center">Status</th>
-                    <th className="py-4 pl-4 pr-6 text-right">Aksi</th>
+                    <th className="py-4 pl-6 pr-3 whitespace-nowrap">Preview Banner</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Tag &amp; Judul</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Deskripsi / Link</th>
+                    <th className="px-4 py-4 text-center whitespace-nowrap">Urutan</th>
+                    <th className="px-4 py-4 text-center whitespace-nowrap">Status</th>
+                    <th className="py-4 pl-4 pr-6 text-right whitespace-nowrap">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm font-medium">

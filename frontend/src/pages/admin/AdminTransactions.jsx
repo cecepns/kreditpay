@@ -129,8 +129,8 @@ export default function AdminTransactions() {
       </div>
 
       <div className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-100">
-        <div className="flex flex-wrap items-center gap-3 p-4">
-          <div className="relative min-w-0 flex-1 sm:max-w-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4">
+          <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={list.search}
@@ -140,28 +140,30 @@ export default function AdminTransactions() {
             />
           </div>
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-xs font-extrabold text-slate-700 focus:outline-none"
-          >
-            <option value="">Semua Status</option>
-            <option value="pending">Menunggu Verifikasi</option>
-            <option value="success">Berhasil Disetujui</option>
-            <option value="failed">Gagal / Ditolak</option>
-          </select>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full sm:w-auto rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-xs font-extrabold text-slate-700 focus:outline-none"
+            >
+              <option value="">Semua Status</option>
+              <option value="pending">Menunggu Verifikasi</option>
+              <option value="success">Berhasil Disetujui</option>
+              <option value="failed">Gagal / Ditolak</option>
+            </select>
 
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-xs font-extrabold text-slate-700 focus:outline-none"
-          >
-            <option value="">Semua Jenis</option>
-            <option value="topup">Top Up Saldo</option>
-            <option value="ppob">Pulsa &amp; Tagihan</option>
-            <option value="transfer_out">Transfer Keluar</option>
-            <option value="transfer_in">Transfer Masuk</option>
-          </select>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full sm:w-auto rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-xs font-extrabold text-slate-700 focus:outline-none"
+            >
+              <option value="">Semua Jenis</option>
+              <option value="topup">Top Up Saldo</option>
+              <option value="ppob">Pulsa &amp; Tagihan</option>
+              <option value="transfer_out">Transfer Keluar</option>
+              <option value="transfer_in">Transfer Masuk</option>
+            </select>
+          </div>
         </div>
 
         <DataTable

@@ -5,6 +5,7 @@ import useFetch from "@/hooks/useFetch";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import Pagination from "@/components/ui/Pagination";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/ui/StateViews";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { put, post } from "@/utils/request";
@@ -142,9 +143,9 @@ export default function AdminPayLater() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
           <select
-            className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none"
+            className="w-full sm:w-auto rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
@@ -155,7 +156,7 @@ export default function AdminPayLater() {
           </select>
 
           <select
-            className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none"
+            className="w-full sm:w-auto rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none"
             value={limit}
             onChange={(e) => setLimit(Number(e.target.value))}
           >
@@ -166,8 +167,8 @@ export default function AdminPayLater() {
         </div>
       </div>
 
-      {/* Tabel Pengajuan */}
-      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 space-y-4">
+      {/* Daftar Pengajuan */}
+      <div className="rounded-3xl bg-white p-4 sm:p-6 shadow-sm ring-1 ring-slate-100 space-y-4">
         {/* Banner Aksi Seleksi Massal */}
         {selectedIds.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs animate-in fade-in duration-200">
@@ -223,82 +224,125 @@ export default function AdminPayLater() {
             description="Belum ada pengguna yang mengajukan aktivasi PayLater."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-100 text-xs font-extrabold uppercase text-slate-400">
-                <tr>
-                  <th className="pb-3 pl-2 w-10">
+          <>
+            {/* 1. Tampilan Mobile: Kartu Responsif (lg:hidden) */}
+            <div className="lg:hidden space-y-3">
+              {/* Bar Pilih Semua Pending di Mobile */}
+              {pendingOnPage.length > 0 && (
+                <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3.5 py-2.5 text-xs border border-slate-200/80">
+                  <label className="flex items-center gap-2 font-bold text-slate-700 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={isAllPendingSelected}
                       onChange={toggleSelectAll}
-                      disabled={pendingOnPage.length === 0}
-                      className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 cursor-pointer disabled:cursor-not-allowed"
-                      title="Pilih semua pengajuan pending di halaman ini"
+                      className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
                     />
-                  </th>
-                  <th className="pb-3">Pengguna</th>
-                  <th className="pb-3">NIK &amp; Pekerjaan</th>
-                  <th className="pb-3">Pinjaman Diajukan</th>
-                  <th className="pb-3">Gaji Bulanan</th>
-                  <th className="pb-3">Tanggal Pengajuan</th>
-                  <th className="pb-3">Status</th>
-                  <th className="pb-3 text-right pr-2">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-semibold">
-                {data.data.map((item) => (
-                  <tr
+                    <span>Pilih Semua Pending ({pendingOnPage.length})</span>
+                  </label>
+                  <span className="text-[11px] font-bold text-slate-400">
+                    {selectedIds.length} dipilih
+                  </span>
+                </div>
+              )}
+
+              {data.data.map((item) => {
+                const isSelected = selectedIds.includes(item.id);
+                const isPending = item.status === "pending";
+
+                return (
+                  <div
                     key={item.id}
-                    className={`hover:bg-slate-50/60 transition ${
-                      selectedIds.includes(item.id) ? "bg-emerald-50/40" : ""
+                    className={`rounded-2xl border p-4 space-y-3.5 transition shadow-sm ${
+                      isSelected
+                        ? "border-emerald-300 bg-emerald-50/50"
+                        : "border-slate-200/80 bg-white"
                     }`}
                   >
-                    <td className="py-3.5 pl-2">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(item.id)}
-                        onChange={() => toggleSelect(item.id)}
-                        disabled={item.status !== "pending"}
-                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
-                      />
-                    </td>
-                    <td className="py-3.5">
-                      <p className="font-extrabold text-slate-800">{item.user_name || item.username}</p>
-                      <p className="text-xs text-slate-400">@{item.username} · {item.user_phone}</p>
-                    </td>
-                    <td className="py-3.5">
-                      <p className="font-bold text-slate-800 font-mono text-xs">{item.nik}</p>
-                      <p className="text-xs text-slate-500">{item.job_type} · {item.company_name}</p>
-                    </td>
-                    <td className="py-3.5">
-                      <p className="font-extrabold text-amber-700 text-xs">
-                        {item.requested_amount > 0 ? formatRupiah(item.requested_amount) : "-"}
-                      </p>
-                      {item.requested_tenor > 0 && (
-                        <p className="text-[10px] text-slate-400 font-semibold">{item.requested_tenor} Bulan</p>
-                      )}
-                    </td>
-                    <td className="py-3.5 text-xs font-black text-slate-700">
-                      {formatRupiah(item.monthly_income)}
-                    </td>
-                    <td className="py-3.5 text-xs text-slate-500">
-                      {formatDateTime(item.created_at)}
-                    </td>
-                    <td className="py-3.5">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-black ${
-                        item.status === "approved"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : item.status === "rejected"
-                          ? "bg-rose-100 text-rose-700"
-                          : "bg-amber-100 text-amber-700"
-                      }`}>
+                    {/* Header Kartu: Checkbox, User Info & Status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2.5">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(item.id)}
+                          disabled={!isPending}
+                          className="mt-1 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                        />
+                        <div>
+                          <p className="font-extrabold text-slate-900 text-sm leading-snug">
+                            {item.user_name || item.username}
+                          </p>
+                          <p className="text-xs font-semibold text-slate-500">
+                            @{item.username} · {item.user_phone || "-"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-black ${
+                          item.status === "approved"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : item.status === "rejected"
+                            ? "bg-rose-100 text-rose-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
                         {item.status === "approved" && "Disetujui"}
                         {item.status === "rejected" && "Ditolak"}
                         {item.status === "pending" && "Menunggu"}
                       </span>
-                    </td>
-                    <td className="py-3.5 text-right pr-2">
+                    </div>
+
+                    {/* Info Grid 2x2: NIK, Pekerjaan, Pinjaman Diajukan, Gaji Bulanan */}
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-xl bg-slate-50 p-2.5 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          NIK
+                        </span>
+                        <p className="font-mono font-bold text-slate-800 truncate mt-0.5" title={item.nik}>
+                          {item.nik || "-"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-slate-50 p-2.5 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Pekerjaan
+                        </span>
+                        <p className="font-bold text-slate-800 truncate mt-0.5" title={`${item.job_type || "-"} · ${item.company_name || "-"}`}>
+                          {item.job_type || item.company_name || "-"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-amber-50/70 p-2.5 border border-amber-200/60">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                          Pinjaman Diajukan
+                        </span>
+                        <p className="font-black text-amber-900 mt-0.5">
+                          {item.requested_amount > 0 ? formatRupiah(item.requested_amount) : "-"}
+                        </p>
+                        {item.requested_tenor > 0 && (
+                          <span className="inline-block mt-0.5 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.5 rounded">
+                            {item.requested_tenor} Bulan
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="rounded-xl bg-slate-50 p-2.5 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Gaji Bulanan
+                        </span>
+                        <p className="font-black text-slate-800 mt-0.5">
+                          {formatRupiah(item.monthly_income)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Footer Kartu: Tanggal Pengajuan & Tombol Verifikasi */}
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+                      <p className="text-[11px] font-semibold text-slate-400">
+                        {formatDateTime(item.created_at)}
+                      </p>
+
                       <Button
                         size="sm"
                         variant="soft"
@@ -307,15 +351,121 @@ export default function AdminPayLater() {
                           setSelectedApp(item);
                           setApprovedLimit(item.requested_amount > 0 ? Number(item.requested_amount) : 50000000);
                         }}
+                        className="font-bold"
                       >
-                        Detail
+                        Detail Verifikasi
                       </Button>
-                    </td>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 2. Tampilan Desktop / Layar Besar (hidden lg:block) */}
+            <div className="hidden lg:block overflow-x-auto scrollbar-thin">
+              <table className="w-full min-w-[980px] text-left text-sm whitespace-nowrap">
+                <thead className="border-b border-slate-100 text-xs font-extrabold uppercase text-slate-400">
+                  <tr>
+                    <th className="pb-3 pl-2 w-10">
+                      <input
+                        type="checkbox"
+                        checked={isAllPendingSelected}
+                        onChange={toggleSelectAll}
+                        disabled={pendingOnPage.length === 0}
+                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 cursor-pointer disabled:cursor-not-allowed"
+                        title="Pilih semua pengajuan pending di halaman ini"
+                      />
+                    </th>
+                    <th className="pb-3">Pengguna</th>
+                    <th className="pb-3">NIK &amp; Pekerjaan</th>
+                    <th className="pb-3">Pinjaman Diajukan</th>
+                    <th className="pb-3">Gaji Bulanan</th>
+                    <th className="pb-3">Tanggal Pengajuan</th>
+                    <th className="pb-3">Status</th>
+                    <th className="pb-3 text-right pr-2">Aksi</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-semibold">
+                  {data.data.map((item) => (
+                    <tr
+                      key={item.id}
+                      className={`hover:bg-slate-50/60 transition ${
+                        selectedIds.includes(item.id) ? "bg-emerald-50/40" : ""
+                      }`}
+                    >
+                      <td className="py-3.5 pl-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(item.id)}
+                          onChange={() => toggleSelect(item.id)}
+                          disabled={item.status !== "pending"}
+                          className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                        />
+                      </td>
+                      <td className="py-3.5">
+                        <p className="font-extrabold text-slate-800">{item.user_name || item.username}</p>
+                        <p className="text-xs text-slate-400">@{item.username} · {item.user_phone}</p>
+                      </td>
+                      <td className="py-3.5">
+                        <p className="font-bold text-slate-800 font-mono text-xs">{item.nik}</p>
+                        <p className="text-xs text-slate-500">{item.job_type} · {item.company_name}</p>
+                      </td>
+                      <td className="py-3.5">
+                        <p className="font-extrabold text-amber-700 text-xs">
+                          {item.requested_amount > 0 ? formatRupiah(item.requested_amount) : "-"}
+                        </p>
+                        {item.requested_tenor > 0 && (
+                          <p className="text-[10px] text-slate-400 font-semibold">{item.requested_tenor} Bulan</p>
+                        )}
+                      </td>
+                      <td className="py-3.5 text-xs font-black text-slate-700">
+                        {formatRupiah(item.monthly_income)}
+                      </td>
+                      <td className="py-3.5 text-xs text-slate-500">
+                        {formatDateTime(item.created_at)}
+                      </td>
+                      <td className="py-3.5">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-black ${
+                          item.status === "approved"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : item.status === "rejected"
+                            ? "bg-rose-100 text-rose-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}>
+                          {item.status === "approved" && "Disetujui"}
+                          {item.status === "rejected" && "Ditolak"}
+                          {item.status === "pending" && "Menunggu"}
+                        </span>
+                      </td>
+                      <td className="py-3.5 text-right pr-2">
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          icon={Eye}
+                          onClick={() => {
+                            setSelectedApp(item);
+                            setApprovedLimit(item.requested_amount > 0 ? Number(item.requested_amount) : 50000000);
+                          }}
+                        >
+                          Detail
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Backend */}
+            {data?.pagination && (
+              <Pagination
+                pagination={data.pagination}
+                onPage={setPage}
+                limit={limit}
+                onLimit={setLimit}
+              />
+            )}
+          </>
         )}
       </div>
 
