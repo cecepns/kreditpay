@@ -16,6 +16,7 @@ import {
   Check,
   AlertCircle,
   Eye,
+  Layers,
 } from "lucide-react";
 import useFetch from "@/hooks/useFetch";
 import { API_ENDPOINTS } from "@/utils/endpoints";
@@ -23,6 +24,7 @@ import { put } from "@/utils/request";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { ListSkeleton, ErrorState } from "@/components/ui/StateViews";
+import ApprovalLetterDocument, { LETTER_MODELS } from "@/components/paylater/ApprovalLetterDocument";
 
 export default function AdminSettings() {
   const { data, loading, error, reload } = useFetch(API_ENDPOINTS.ADMIN.SETTINGS.GET);
@@ -34,6 +36,7 @@ export default function AdminSettings() {
     cs_operational_hours: "",
     notif_acc_title: "",
     notif_acc_message: "",
+    letter_layout_model: "model_1",
     letter_company_name: "",
     letter_title: "",
     letter_number_prefix: "",
@@ -44,6 +47,7 @@ export default function AdminSettings() {
     letter_signer: "",
     letter_important_notes: "",
   });
+  const [previewModelTab, setPreviewModelTab] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -59,6 +63,7 @@ export default function AdminSettings() {
         notif_acc_message:
           s.notif_acc_message ||
           "Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.",
+        letter_layout_model: s.letter_layout_model || "model_1",
         letter_company_name: s.letter_company_name || "PT KREDITPAY INDONESIA",
         letter_title: s.letter_title || "SURAT PEMBERITAHUAN\nPERSETUJUAN PENGAJUAN PINJAMAN",
         letter_number_prefix: s.letter_number_prefix || "KP/APP",
@@ -363,7 +368,7 @@ export default function AdminSettings() {
           </div>
         </div>
 
-        {/* Section 4: Kustomisasi Template Surat Persetujuan Pinjaman */}
+        {/* Section 4: Kustomisasi Template Surat Persetujuan Pinjaman & Pilihan Model */}
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 space-y-6">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-50 text-rose-600">
@@ -371,15 +376,67 @@ export default function AdminSettings() {
             </span>
             <div>
               <h2 className="text-lg font-black text-slate-800">
-                Template Surat Persetujuan Pinjaman (KOP &amp; Aturan Pencairan)
+                Template Surat Persetujuan Pinjaman &amp; Pilihan Model Desain
               </h2>
               <p className="text-xs font-semibold text-slate-400">
-                Atur redaksi kop surat resmi, aturan pencairan limit pinjaman, nominal minimal top-up, stempel, dan penandatangan yang tampil pada dokumen persetujuan nasabah.
+                Pilih model desain tampilan surat dan sesuaikan redaksi dokumen resmi yang tampil pada akun nasabah saat pinjaman disetujui (ACC).
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Pemilih Model Desain Surat (4 Opsi Desain Berbeda) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <Layers className="h-4 w-4 text-primary-600" />
+                PILIH MODEL TAMPILAN SURAT NASABAH
+              </label>
+              <span className="text-[11px] font-semibold text-slate-400">
+                Model aktif yang akan dilihat oleh nasabah
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {LETTER_MODELS.map((m) => {
+                const isSelected = formData.letter_layout_model === m.id;
+                return (
+                  <div
+                    key={m.id}
+                    onClick={() => {
+                      setFormData((p) => ({ ...p, letter_layout_model: m.id }));
+                      setPreviewModelTab(m.id);
+                    }}
+                    className={`relative rounded-2xl p-4 border-2 cursor-pointer transition-all ${
+                      isSelected
+                        ? "border-blue-600 bg-blue-50/40 shadow-sm"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${m.badgeColor}`}>
+                        {m.badge}
+                      </span>
+                      <div
+                        className={`h-4 w-4 rounded-full border grid place-items-center ${
+                          isSelected
+                            ? "border-blue-600 bg-blue-600 text-white"
+                            : "border-slate-300 bg-white"
+                        }`}
+                      >
+                        {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+                      </div>
+                    </div>
+                    <h4 className="text-sm font-black text-slate-900">{m.name}</h4>
+                    <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                      {m.desc}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
             <div>
               <Input
                 label="Nama Perusahaan (KOP Surat)"
@@ -459,7 +516,7 @@ export default function AdminSettings() {
               value={formData.letter_rules_min_topup}
               onChange={handleChange}
               placeholder="Contoh: Rp 1.000.000 (satu juta rupiah)"
-              helper="Nominal yang di-highlight merah terang pada poin aturan pencairan."
+              helper="Nominal yang di-highlight mencolok pada poin aturan pencairan."
               required
             />
           </div>
@@ -470,12 +527,12 @@ export default function AdminSettings() {
                 Poin-Poin Aturan Pencairan Limit Pinjaman
               </label>
               <span className="text-[11px] font-semibold text-slate-400">
-                Gunakan <b>[TOPUP_HIGHLIGHT]</b> untuk menyisipkan kotak merah nominal top-up
+                Gunakan <b>[TOPUP_HIGHLIGHT]</b> untuk menyisipkan kotak sorotan nominal top-up
               </span>
             </div>
             <textarea
               name="letter_rules_content"
-              rows={9}
+              rows={8}
               value={formData.letter_rules_content}
               onChange={handleChange}
               placeholder="Masukkan poin-poin instruksi aturan pencairan saldo nasabah..."
@@ -525,184 +582,64 @@ export default function AdminSettings() {
             </div>
           </div>
 
-          {/* Pratinjau Dokumen Surat Persetujuan (Live Preview Mirip Tampilan User) */}
-          <div className="rounded-3xl border border-rose-200 bg-rose-50/40 p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-rose-950">
-                <Eye className="h-4 w-4 text-rose-600" /> Live Preview: Tampilan Surat Pada Modal Nasabah
+          {/* Pratinjau Dokumen Surat Persetujuan (Live Switcher Model) */}
+          <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-900">
+                <Eye className="h-4 w-4 text-blue-600" /> Pratinjau Langsung: Surat Persetujuan Nasabah
               </span>
-              <span className="rounded-full bg-rose-100 px-3 py-1 text-[11px] font-extrabold text-rose-800">
-                Format Resmi Dokumen
-              </span>
+
+              {/* Tab Selector Cepat Preview Model */}
+              <div className="flex flex-wrap items-center gap-1.5 bg-white p-1 rounded-2xl border border-slate-200 shadow-2xs">
+                {LETTER_MODELS.map((m) => {
+                  const isCurrent = (previewModelTab || formData.letter_layout_model) === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setPreviewModelTab(m.id)}
+                      className={`rounded-xl px-2.5 py-1 text-[11px] font-black transition ${
+                        isCurrent
+                          ? "bg-slate-900 text-white shadow-xs"
+                          : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                      }`}
+                    >
+                      {m.id === "model_1" && "1. FinTech Modern"}
+                      {m.id === "model_2" && "2. Formal Bank"}
+                      {m.id === "model_3" && "3. Sertifikat SKPK"}
+                      {m.id === "model_reference" && "4. Referensi Merah"}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Kertas Dokumen Putih */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-5 text-slate-800 text-xs sm:text-sm">
-              {/* KOP Surat */}
-              <div className="flex items-center justify-between border-b-2 border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-black text-rose-600 tracking-tight">KreditPay</span>
-                </div>
-                <div className="text-right">
-                  <p className="font-black text-slate-900 text-xs sm:text-sm uppercase tracking-wide">
-                    {formData.letter_company_name || "PT KREDITPAY INDONESIA"}
-                  </p>
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    Sistem Layanan Pengajuan Pinjaman Terpadu
-                  </p>
-                </div>
-              </div>
-
-              {/* Judul & Nomor Surat */}
-              <div className="text-center space-y-1 pt-1">
-                <h3 className="font-black text-sm sm:text-base text-slate-900 uppercase whitespace-pre-line tracking-tight">
-                  {formData.letter_title || "SURAT PEMBERITAHUAN\nPERSETUJUAN PENGAJUAN PINJAMAN"}
-                </h3>
-                <p className="text-[11px] font-bold text-slate-500">
-                  Nomor: {formData.letter_number_prefix || "KP/APP"}/112026/032087
-                </p>
-              </div>
-
-              {/* Data Nasabah */}
-              <div className="space-y-1 text-xs">
-                <p className="font-semibold text-slate-500">Kepada Yth.</p>
-                <p className="font-black text-slate-900 text-sm">Sandi Saputra</p>
-                <div className="grid grid-cols-[100px_10px_1fr] text-slate-600 pt-1">
-                  <span>ID Akun</span>
-                  <span>:</span>
-                  <span className="font-mono font-bold text-slate-800">( KP-0082 )</span>
-                  <span>No. Pengajuan</span>
-                  <span>:</span>
-                  <span className="font-mono font-bold text-slate-800">PINJ-202611-032087</span>
-                </div>
-              </div>
-
-              {/* Pembuka */}
-              <div className="space-y-2 text-slate-700 leading-relaxed text-xs">
-                <p className="font-semibold">Dengan hormat,</p>
-                <p>
-                  {(
-                    formData.letter_opening ||
-                    "Berdasarkan hasil proses evaluasi dan verifikasi terhadap pengajuan pinjaman yang Anda ajukan melalui {company_name}, dengan ini kami memberitahukan bahwa pengajuan pinjaman Anda telah DISETUJUI, dengan rincian sebagai berikut:"
-                  ).replace(/{company_name}/gi, formData.letter_company_name || "PT KREDITPAY INDONESIA")}
-                </p>
-              </div>
-
-              {/* Tabel Rincian */}
-              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5 space-y-2.5 text-xs">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-slate-500 font-semibold">Status Pinjaman</span>
-                  <span className="rounded-md bg-emerald-100 px-2.5 py-0.5 text-xs font-black text-emerald-800">
-                    Diterima
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-slate-500 font-semibold">Tenor Pinjaman</span>
-                  <span className="font-black text-slate-800">12 Bulan</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-slate-500 font-semibold">Cicilan per Bulan</span>
-                  <span className="font-black text-slate-800">Rp 425.000</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-slate-500 font-semibold">Tanggal Persetujuan</span>
-                  <span className="font-bold text-slate-700">07 November 2026, 19:40 WIB</span>
-                </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-slate-800 font-extrabold">Total Pinjaman Disetujui</span>
-                  <span className="text-sm font-black text-rose-600">Rp 5.000.000</span>
-                </div>
-              </div>
-
-              {/* Box Aturan Pencairan */}
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 space-y-3">
-                <div className="flex items-center gap-2 border-b border-slate-200/80 pb-2.5">
-                  <span className="grid h-6 w-6 place-items-center rounded-lg bg-slate-200 text-slate-700">
-                    <FileText className="h-3.5 w-3.5" />
-                  </span>
-                  <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                      ATURAN PENCAIRAN LIMIT PINJAMAN
-                    </h4>
-                    <p className="text-[10px] text-slate-400 font-medium">
-                      Informasi yang perlu diperhatikan sebelum menggunakan fitur pencairan
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 text-[11px] text-slate-700 leading-relaxed">
-                  {(formData.letter_rules_content || "")
-                    .split("\n")
-                    .map((line, idx) => {
-                      if (line.includes("[TOPUP_HIGHLIGHT]")) {
-                        return (
-                          <div
-                            key={idx}
-                            className="my-2 rounded-xl border border-rose-200 bg-rose-50/90 py-2.5 px-4 text-center font-black text-rose-600 text-xs shadow-2xs"
-                          >
-                            Top-up {formData.letter_rules_min_topup || "Rp 1.000.000 (satu juta rupiah)"}
-                          </div>
-                        );
-                      }
-                      if (!line.trim()) return null;
-                      return (
-                        <div key={idx} className="flex items-start gap-2">
-                          <span className="mt-1 h-1 w-1 rounded-full bg-slate-500 shrink-0" />
-                          <span>{line.replace(/^-\s*/, "")}</span>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* Penutup */}
-              <div className="space-y-1 text-xs text-slate-700 leading-relaxed pt-1">
-                <p>
-                  {(
-                    formData.letter_closing ||
-                    "Demikian surat pemberitahuan ini kami sampaikan. Terima kasih atas kepercayaan Anda kepada {company_name}."
-                  ).replace(/{company_name}/gi, formData.letter_company_name || "PT KREDITPAY INDONESIA")}
-                </p>
-              </div>
-
-              {/* Tanggal & Tanda Tangan Resmi */}
-              <div className="pt-2 text-xs space-y-1">
-                <p className="font-bold text-slate-700">07 November 2026</p>
-                <p className="text-slate-500">Hormat kami,</p>
-                <p className="font-black text-rose-600 uppercase">
-                  {formData.letter_company_name || "PT KREDITPAY INDONESIA"}
-                </p>
-
-                {/* Stempel Basah Resmi Merah */}
-                <div className="py-2">
-                  <div className="inline-block -rotate-6 rounded-lg border-2 border-dashed border-rose-600/80 px-4 py-2 text-center text-rose-600 bg-rose-50/30 shadow-2xs select-none">
-                    <p className="text-[11px] font-black tracking-widest uppercase">
-                      {formData.app_name || "KREDITPAY"}
-                    </p>
-                    <p className="text-[9px] font-extrabold uppercase">
-                      {formData.letter_company_name || "PT KREDITPAY INDONESIA"}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="font-extrabold text-slate-900 pt-1">
-                  {formData.letter_signer || "Tim Operasional"}
-                </p>
-              </div>
-
-              {/* Box Informasi Penting */}
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 space-y-1 text-[11px]">
-                <p className="font-black text-rose-600 uppercase tracking-wide">
-                  INFORMASI PENTING
-                </p>
-                <p className="text-slate-600 font-medium leading-relaxed">
-                  {(
-                    formData.letter_important_notes ||
-                    "Jaga kerahasiaan akun dan data pribadi Anda. {company_name} tidak meminta PIN, OTP, atau password kepada siapapun melalui media lainnya."
-                  ).replace(/{company_name}/gi, formData.letter_company_name || "PT KREDITPAY INDONESIA")}
-                </p>
-              </div>
-            </div>
+            {/* Dokumen Surat Live Preview */}
+            <ApprovalLetterDocument
+              model={previewModelTab || formData.letter_layout_model || "model_1"}
+              template={formData}
+              application={{
+                id: 87,
+                full_name: "Sandi Saputra",
+                user_id: 82,
+                requested_amount: 5000000,
+                requested_tenor: 12,
+                monthly_installment: 425000,
+                created_at: new Date().toISOString(),
+              }}
+              userInfo={{
+                name: "Sandi Saputra",
+                username: "sandi",
+              }}
+              appName={formData.app_name}
+              helpers={{
+                formatLetterNumber: (id, dateStr, prefix) =>
+                  `${prefix || "KP/APP"}/112026/032087`,
+                formatApplicationCode: () => "PINJ-202611-032087",
+                formatFormalDate: () => "07 November 2026",
+                formatFormalDateTime: () => "07 November 2026, 19:40 WIB",
+              }}
+            />
           </div>
         </div>
 

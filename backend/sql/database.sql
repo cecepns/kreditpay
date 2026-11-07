@@ -204,6 +204,7 @@ INSERT INTO app_settings (setting_key, setting_value, description) VALUES
 ('cs_operational_hours', 'Senin - Minggu: 08:00 - 22:00 WIB', 'Jam Operasional CS'),
 ('notif_acc_title', 'Pengajuan Pinjaman Disetujui (ACC)', 'Judul notifikasi saat pinjaman nasabah disetujui'),
 ('notif_acc_message', 'Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.', 'Pesan notifikasi saat pinjaman disetujui'),
+('letter_layout_model', 'model_1', 'Pilihan Model Desain Surat: model_1 (Modern FinTech), model_2 (Formal Perbankan), model_3 (Sertifikat SKPK), model_reference (Model Referensi Asli)'),
 ('letter_company_name', 'PT KREDITPAY INDONESIA', 'Nama Perusahaan pada Surat Persetujuan'),
 ('letter_title', 'SURAT PEMBERITAHUAN\nPERSETUJUAN PENGAJUAN PINJAMAN', 'Judul Surat Persetujuan'),
 ('letter_number_prefix', 'KP/APP', 'Awalan / Prefix Nomor Surat Resmi'),

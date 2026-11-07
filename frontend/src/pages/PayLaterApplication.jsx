@@ -45,6 +45,7 @@ import {
   getVillages,
 } from "@/utils/wilayah";
 import { compressImage } from "@/utils/imageCompressor";
+import ApprovalLetterDocument, { LETTER_MODELS } from "@/components/paylater/ApprovalLetterDocument";
 
 const LOAN_AMOUNT_OPTIONS = [
   5000000,
@@ -78,9 +79,11 @@ export default function PayLaterApplication() {
   const [application, setApplication] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
   const [openSuratModal, setOpenSuratModal] = useState(false);
+  const [activeLetterModelTab, setActiveLetterModelTab] = useState(null);
 
   // Template Surat Resmi Persetujuan Pinjaman (Dapat diedit oleh Admin di Pengaturan)
   const [letterTemplate, setLetterTemplate] = useState({
+    letter_layout_model: "model_1",
     letter_company_name: "PT KREDITPAY INDONESIA",
     letter_title: "SURAT PEMBERITAHUAN\nPERSETUJUAN PENGAJUAN PINJAMAN",
     letter_number_prefix: "KP/APP",
@@ -912,64 +915,81 @@ export default function PayLaterApplication() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* ── TAHAP 0: RIWAYAT PINJAMAN (SESUAI GAMBAR 1) ── */}
+      {/* ── TAHAP 0: RIWAYAT PINJAMAN (TEMA UNGU KREDITPAY) ── */}
       {stage === "riwayat" && (
-        <div className="flex flex-col min-h-screen bg-[#F43F5E]/5 pb-12">
-          {/* Header Merah dengan Tombol Kembali */}
-          <header className="bg-[#E11D48] px-5 pt-6 pb-10 text-white rounded-b-[2.5rem] shadow-md">
-            <div className="max-w-md mx-auto">
-              <button
-                type="button"
-                onClick={() => navigate("/app")}
-                className="inline-flex items-center gap-2 text-sm font-black text-white hover:text-white/80 transition active:scale-95"
-              >
-                <ArrowLeft className="h-5 w-5 stroke-[2.5]" />
-                <span>Kembali</span>
-              </button>
+        <div className="flex flex-col min-h-screen bg-[#F8FAFC] pb-12">
+          {/* Header Ungu Khas KreditPay dengan Tombol Kembali */}
+          <header className="relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-800 to-indigo-900 px-5 pt-6 pb-12 text-white rounded-b-[2.5rem] shadow-xl">
+            {/* Ambient Glow Latar Ungu */}
+            <div className="pointer-events-none absolute -right-12 -top-12 h-60 w-60 rounded-full bg-white/10 blur-3xl" />
+            <div className="pointer-events-none absolute left-10 -bottom-10 h-48 w-48 rounded-full bg-purple-500/20 blur-2xl" />
+
+            <div className="relative z-10 max-w-md mx-auto">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => navigate("/app")}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white/15 px-3.5 py-2 text-xs font-black text-white backdrop-blur-md hover:bg-white/25 transition active:scale-95 shadow-sm"
+                >
+                  <ArrowLeft className="h-4 w-4 stroke-[2.5]" />
+                  <span>Kembali</span>
+                </button>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-black tracking-wide text-white backdrop-blur-md">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                  <span>KreditPay PayLater</span>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-1">
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                  Riwayat Pinjaman
+                </h1>
+                <p className="text-xs text-white/80 font-medium">
+                  Pantau status dan informasi pengajuan fasilitas limit Anda
+                </p>
+              </div>
             </div>
           </header>
 
-          <main className="px-5 -mt-5 space-y-4 max-w-md mx-auto w-full">
+          <main className="px-5 -mt-6 space-y-4 max-w-md mx-auto w-full">
             {/* Kartu 1: Riwayat Pinjaman */}
-            <div className="rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-slate-100 space-y-3.5">
-              <div>
-                <h2 className="text-base font-black text-slate-900 tracking-tight">Riwayat Pinjaman</h2>
-                <p className="text-xs font-semibold text-slate-400">Pantau status pengajuan terbaru Anda</p>
+            <div className="rounded-3xl bg-white p-5 sm:p-6 shadow-sm ring-1 ring-slate-100 space-y-3.5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-black text-slate-900 tracking-tight">Status Pengajuan Pinjaman</h2>
+                {application?.status === "approved" ? (
+                  <span className="rounded-full bg-emerald-50 border border-emerald-200/80 px-3 py-0.5 text-xs font-black text-emerald-700 shadow-2xs">
+                    Diterima
+                  </span>
+                ) : application?.status === "rejected" ? (
+                  <span className="rounded-full bg-rose-50 border border-rose-200/80 px-3 py-0.5 text-xs font-black text-rose-700 shadow-2xs">
+                    Ditolak
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-amber-50 border border-amber-200/80 px-3 py-0.5 text-xs font-black text-amber-800 shadow-2xs">
+                    Menunggu Verifikasi
+                  </span>
+                )}
               </div>
 
-              <div className="rounded-2xl bg-[#F8FAFC] border border-slate-100 p-4 sm:p-5 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500">Nominal Pinjaman</span>
-                  {application?.status === "approved" ? (
-                    <span className="rounded-full bg-emerald-50 border border-emerald-200/80 px-3 py-0.5 text-xs font-black text-emerald-700 shadow-2xs">
-                      Diterima
-                    </span>
-                  ) : application?.status === "rejected" ? (
-                    <span className="rounded-full bg-rose-50 border border-rose-200/80 px-3 py-0.5 text-xs font-black text-rose-700 shadow-2xs">
-                      Ditolak
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-amber-50 border border-amber-200/80 px-3 py-0.5 text-xs font-black text-amber-800 shadow-2xs">
-                      Menunggu Verifikasi
-                    </span>
-                  )}
-                </div>
+              <div className="rounded-2xl bg-primary-50/40 border border-primary-100/80 p-4 sm:p-5 space-y-2.5">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Nominal Pinjaman</span>
 
-                <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                <p className="text-2xl sm:text-3xl font-black text-primary-950 tracking-tight">
                   {formatRupiah(application?.requested_amount || requestedAmount)}
                 </p>
 
-                <p className="text-xs font-semibold text-slate-400">
-                  Diajukan {formatDiajukanDate(application?.created_at) || "07-11-2026 19:40"}
-                </p>
+                <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-primary-100/60 font-medium">
+                  <span>Tenor: <b className="text-slate-800 font-bold">{application?.requested_tenor || requestedTenor} Bulan</b></span>
+                  <span>Diajukan {formatDiajukanDate(application?.created_at) || "07-11-2026 19:40"}</span>
+                </div>
               </div>
             </div>
 
-            {/* Kartu 2: Status Verifikasi & Buka Surat Persetujuan */}
-            <div className="rounded-3xl bg-white p-6 shadow-sm border border-slate-100 text-center space-y-4">
+            {/* Kartu 2: Status Verifikasi (Tombol Surat Persetujuan Di-Hide Sesuai Request) */}
+            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 text-center space-y-4">
               {application?.status === "approved" ? (
                 <>
-                  {/* Badge Bulat Oranye Centang VERIFIED (Sesuai Referensi Gambar 1) */}
+                  {/* Badge Bulat Oranye Centang VERIFIED */}
                   <div className="flex items-center justify-center pt-1">
                     <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/80 bg-gradient-to-r from-amber-50 via-white to-amber-50 px-3.5 py-1.5 shadow-xs">
                       <div className="grid h-5 w-5 place-items-center rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 text-white shadow-xs">
@@ -981,16 +1001,20 @@ export default function PayLaterApplication() {
                     </div>
                   </div>
 
-                  <p className="text-xs sm:text-sm font-semibold text-slate-600 max-w-xs mx-auto leading-relaxed">
-                    Pinjaman Anda sudah diterima. Buka surat persetujuan untuk melihat rincian dan informasi pencairan.
-                  </p>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-black text-slate-900">Pinjaman Anda Telah Disetujui!</h3>
+                    <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed">
+                      Pengajuan pinjaman Anda telah berhasil disetujui &amp; limit PayLater aktif. Anda kini dapat menggunakan limit untuk berbagai layanan di aplikasi.
+                    </p>
+                  </div>
 
+                  {/* Tombol kembali ke Beranda (Warna Ungu Khas KreditPay) */}
                   <button
                     type="button"
-                    onClick={() => setOpenSuratModal(true)}
-                    className="w-full rounded-2xl bg-[#E11D48] py-4 text-sm font-black text-white shadow-lg shadow-rose-600/30 hover:bg-[#BE123C] transition active:scale-[0.99]"
+                    onClick={() => navigate("/app")}
+                    className="w-full rounded-2xl bg-primary-700 py-3.5 text-sm font-black text-white shadow-lg shadow-primary-700/25 hover:bg-primary-800 transition active:scale-[0.99]"
                   >
-                    Buka Surat Persetujuan
+                    Kembali ke Beranda
                   </button>
                 </>
               ) : application?.status === "rejected" ? (
@@ -2709,7 +2733,7 @@ export default function PayLaterApplication() {
         </div>
       </Modal>
 
-      {/* ── MODAL DETAIL PINJAMAN / SURAT PERSETUJUAN (SESUAI GAMBAR 2 & 3) ── */}
+      {/* ── MODAL DETAIL PINJAMAN / SURAT PERSETUJUAN ── */}
       {openSuratModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-xs animate-in fade-in duration-200"
@@ -2719,217 +2743,77 @@ export default function PayLaterApplication() {
             className="relative flex flex-col w-full max-w-lg max-h-[92vh] rounded-3xl bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header Merah Modal */}
-            <div className="flex items-center justify-between bg-[#E11D48] px-5 py-4 text-white shrink-0">
-              <h3 className="text-base font-black tracking-tight text-white">Detail Pinjaman</h3>
+            {/* Header Modal */}
+            <div className="flex items-center justify-between bg-slate-900 px-5 py-3.5 text-white shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="grid h-7 w-7 place-items-center rounded-xl bg-blue-600 text-white shadow-xs">
+                  <FileText className="h-4 w-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-black tracking-tight text-white leading-tight">
+                    Detail Pinjaman &amp; Surat Persetujuan
+                  </h3>
+                  <p className="text-[10px] text-slate-400">
+                    Dokumen resmi persetujuan limit akun Anda
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setOpenSuratModal(false)}
-                className="grid h-8 w-8 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30 transition active:scale-95"
+                className="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20 transition active:scale-95"
                 aria-label="Tutup"
               >
-                <X className="h-5 w-5 stroke-[2.5]" />
+                <X className="h-4 w-4 stroke-[2.5]" />
               </button>
             </div>
 
+            {/* Switcher Tab Model Surat (Memungkinkan nasabah & admin mengganti model seketika) */}
+            <div className="flex items-center justify-between gap-1.5 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs overflow-x-auto shrink-0">
+              <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0 mr-1 hidden sm:inline">
+                Pilihan Model:
+              </span>
+              <div className="flex items-center gap-1.5 w-full">
+                {LETTER_MODELS.map((m) => {
+                  const currentModel =
+                    activeLetterModelTab || letterTemplate.letter_layout_model || "model_1";
+                  const isCur = currentModel === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setActiveLetterModelTab(m.id)}
+                      className={`flex-1 rounded-xl px-2 py-1 text-[10px] font-black tracking-tight transition truncate text-center ${
+                        isCur
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "bg-white text-slate-600 hover:bg-slate-200/60 border border-slate-200/80"
+                      }`}
+                    >
+                      {m.id === "model_1" && "1. FinTech"}
+                      {m.id === "model_2" && "2. Bank"}
+                      {m.id === "model_3" && "3. SKPK"}
+                      {m.id === "model_reference" && "4. Referensi"}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Konten Kertas Dokumen Surat (Scrollable) */}
-            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 text-slate-800 text-xs sm:text-sm leading-relaxed">
-              {/* KOP Surat */}
-              <div className="flex items-center justify-between border-b-2 border-slate-800 pb-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xl font-black text-[#E11D48] tracking-tighter">
-                    {letterTemplate.app_name || "KreditPay"}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <p className="font-black text-slate-900 text-xs sm:text-sm uppercase tracking-wide">
-                    {letterTemplate.letter_company_name || "PT KREDITPAY INDONESIA"}
-                  </p>
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    Pemberitahuan Sistem Pengajuan Pinjaman
-                  </p>
-                </div>
-              </div>
-
-              {/* Judul & Nomor Surat */}
-              <div className="text-center space-y-1 pt-1">
-                <h4 className="font-black text-sm sm:text-base text-slate-900 uppercase whitespace-pre-line tracking-tight">
-                  {letterTemplate.letter_title || "SURAT PEMBERITAHUAN\nPERSETUJUAN PENGAJUAN PINJAMAN"}
-                </h4>
-                <p className="text-[11px] font-bold text-slate-500">
-                  Nomor:{" "}
-                  {formatLetterNumber(
-                    application?.id,
-                    application?.created_at,
-                    letterTemplate.letter_number_prefix
-                  )}
-                </p>
-              </div>
-
-              {/* Data Nasabah */}
-              <div className="space-y-1.5 text-xs">
-                <p className="font-semibold text-slate-500">Kepada Yth.</p>
-                <p className="font-black text-slate-900 text-sm">
-                  {application?.full_name || formData.fullName || userInfo?.name || "Nasabah"}
-                </p>
-                <div className="grid grid-cols-[100px_10px_1fr] gap-y-0.5 text-slate-600 pt-1">
-                  <span>ID Akun</span>
-                  <span>:</span>
-                  <span className="font-mono font-bold text-slate-800">
-                    ( {userInfo?.username ? userInfo.username.toUpperCase() : `KP-${String(application?.user_id || "").padStart(4, "0")}`} )
-                  </span>
-                  <span>No. Pengajuan</span>
-                  <span>:</span>
-                  <span className="font-mono font-bold text-slate-800">
-                    {formatApplicationCode(application?.id, application?.created_at)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Paragraf Pembuka */}
-              <div className="space-y-2 text-slate-700 leading-relaxed text-xs">
-                <p className="font-semibold">Dengan hormat,</p>
-                <p>
-                  {(
-                    letterTemplate.letter_opening ||
-                    "Berdasarkan hasil proses evaluasi dan verifikasi terhadap pengajuan pinjaman yang Anda ajukan melalui {company_name}, dengan ini kami memberitahukan bahwa pengajuan pinjaman Anda telah DISETUJUI, dengan rincian sebagai berikut:"
-                  ).replace(
-                    /{company_name}/gi,
-                    letterTemplate.letter_company_name || "PT KREDITPAY INDONESIA"
-                  )}
-                </p>
-              </div>
-
-              {/* Tabel Rincian Pinjaman */}
-              <div className="rounded-2xl border border-slate-100 bg-[#F8FAFC] p-4 space-y-2.5 text-xs">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-slate-500 font-semibold">Status Pinjaman</span>
-                  <span className="rounded-md bg-emerald-100 px-2.5 py-0.5 text-xs font-black text-emerald-800">
-                    Diterima
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-slate-500 font-semibold">Tenor Pinjaman</span>
-                  <span className="font-black text-slate-800">
-                    {application?.requested_tenor || requestedTenor} Bulan
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-slate-500 font-semibold">Cicilan per Bulan</span>
-                  <span className="font-black text-slate-800">
-                    {formatRupiah(application?.monthly_installment || monthlyInstallment)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-slate-500 font-semibold">Tanggal Persetujuan</span>
-                  <span className="font-bold text-slate-700">
-                    {formatFormalDateTime(application?.created_at)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-slate-800 font-extrabold">Total Pinjaman Disetujui</span>
-                  <span className="text-sm sm:text-base font-black text-slate-900">
-                    {formatRupiah(application?.requested_amount || requestedAmount)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Bagian Aturan Pencairan Limit Pinjaman */}
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 space-y-3">
-                <div className="flex items-center gap-2 border-b border-slate-200/80 pb-2.5">
-                  <span className="grid h-6 w-6 place-items-center rounded-lg bg-slate-200 text-slate-700">
-                    <Receipt className="h-3.5 w-3.5" />
-                  </span>
-                  <div>
-                    <h5 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                      ATURAN PENCAIRAN LIMIT PINJAMAN
-                    </h5>
-                    <p className="text-[10px] text-slate-400 font-medium">
-                      Informasi yang perlu diperhatikan sebelum menggunakan fitur pencairan
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 text-[11px] text-slate-700 leading-relaxed">
-                  {(letterTemplate.letter_rules_content || "")
-                    .split("\n")
-                    .map((line, idx) => {
-                      if (line.includes("[TOPUP_HIGHLIGHT]")) {
-                        return (
-                          <div
-                            key={idx}
-                            className="my-2 rounded-xl border border-rose-200 bg-rose-50/90 py-2.5 px-4 text-center font-black text-rose-600 text-xs shadow-2xs"
-                          >
-                            Top-up {letterTemplate.letter_rules_min_topup || "Rp 1.000.000 (satu juta rupiah)"}
-                          </div>
-                        );
-                      }
-                      if (!line.trim()) return null;
-                      return (
-                        <div key={idx} className="flex items-start gap-2">
-                          <span className="mt-1.5 h-1 w-1 rounded-full bg-slate-600 shrink-0" />
-                          <span>{line.replace(/^-\s*/, "")}</span>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* Penutup */}
-              <div className="space-y-1 text-xs text-slate-700 leading-relaxed pt-1">
-                <p>
-                  {(
-                    letterTemplate.letter_closing ||
-                    "Demikian surat pemberitahuan ini kami sampaikan. Terima kasih atas kepercayaan Anda kepada {company_name}."
-                  ).replace(
-                    /{company_name}/gi,
-                    letterTemplate.letter_company_name || "PT KREDITPAY INDONESIA"
-                  )}
-                </p>
-              </div>
-
-              {/* Tanggal & Tanda Tangan Resmi */}
-              <div className="pt-2 text-xs space-y-1">
-                <p className="font-bold text-slate-700">
-                  {formatFormalDate(application?.created_at || new Date())}
-                </p>
-                <p className="text-slate-500">Hormat kami,</p>
-                <p className="font-black text-[#E11D48] uppercase">
-                  {letterTemplate.letter_company_name || "PT KREDITPAY INDONESIA"}
-                </p>
-
-                {/* Stempel Basah Resmi Merah */}
-                <div className="py-2">
-                  <div className="inline-block -rotate-6 rounded-lg border-2 border-dashed border-[#E11D48]/80 px-4 py-2 text-center text-[#E11D48] bg-rose-50/40 shadow-2xs select-none">
-                    <p className="text-[11px] font-black tracking-widest uppercase">
-                      {letterTemplate.app_name || "KREDITPAY"}
-                    </p>
-                    <p className="text-[9px] font-extrabold uppercase">
-                      {letterTemplate.letter_company_name || "PT KREDITPAY INDONESIA"}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="font-extrabold text-slate-900 pt-1">
-                  {letterTemplate.letter_signer || "Tim Operasional"}
-                </p>
-              </div>
-
-              {/* Box Informasi Penting di Footer Dokumen */}
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 space-y-1 text-[11px]">
-                <p className="font-black text-[#E11D48] uppercase tracking-wide">
-                  INFORMASI PENTING
-                </p>
-                <p className="text-slate-600 font-medium leading-relaxed">
-                  {(
-                    letterTemplate.letter_important_notes ||
-                    "Jaga kerahasiaan akun dan data pribadi Anda. {company_name} tidak meminta PIN, OTP, atau password kepada siapapun melalui media lainnya."
-                  ).replace(
-                    /{company_name}/gi,
-                    letterTemplate.letter_company_name || "PT KREDITPAY INDONESIA"
-                  )}
-                </p>
-              </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-slate-100/50">
+              <ApprovalLetterDocument
+                model={activeLetterModelTab || letterTemplate.letter_layout_model || "model_1"}
+                template={letterTemplate}
+                application={application || {}}
+                userInfo={userInfo || {}}
+                appName="KreditPay"
+                helpers={{
+                  formatLetterNumber,
+                  formatApplicationCode,
+                  formatFormalDate,
+                  formatFormalDateTime,
+                }}
+              />
             </div>
           </div>
         </div>
