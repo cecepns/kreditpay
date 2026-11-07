@@ -80,6 +80,8 @@ export default function PayLaterApplication() {
   const [requestedAmount, setRequestedAmount] = useState(300000000);
   const [requestedTenor, setRequestedTenor] = useState(12);
   const [openSyaratModal, setOpenSyaratModal] = useState(false);
+  const [openPersetujuanModal, setOpenPersetujuanModal] = useState(false);
+  const [agreedChecked, setAgreedChecked] = useState(false);
 
   // Perhitungan bunga flat 2% per tahun (0.1667% per bulan)
   const calculateDetails = (amount, tenor) => {
@@ -1363,8 +1365,11 @@ export default function PayLaterApplication() {
                     <button
                       type="button"
                       disabled={submitting}
-                      onClick={handleSubmitApplication}
-                      className="rounded-full bg-primary-700 px-3.5 py-1.5 text-xs font-black text-white hover:bg-primary-800"
+                      onClick={() => {
+                        setAgreedChecked(false);
+                        setOpenPersetujuanModal(true);
+                      }}
+                      className="rounded-full bg-primary-700 px-3.5 py-1.5 text-xs font-black text-white hover:bg-primary-800 transition active:scale-95"
                     >
                       {submitting ? "Kirim..." : "Kirim"}
                     </button>
@@ -1414,6 +1419,53 @@ export default function PayLaterApplication() {
                 </div>
               </div>
             </div>
+
+            {/* KARTU KONFIRMASI PERSETUJUAN NASABAH (Sebelum Di-ACC) */}
+            {application?.status === "pending" && (
+              <div className="mt-4 rounded-3xl border-2 border-primary-200 bg-gradient-to-br from-primary-50/70 via-white to-amber-50/40 p-5 shadow-sm space-y-3.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary-700 text-white shrink-0 shadow-xs">
+                    <ShieldCheck className="h-4.5 w-4.5" />
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-primary-950">
+                      KONFIRMASI PERSETUJUAN NASABAH
+                    </h3>
+                    <p className="text-[11px] font-bold text-primary-700">
+                      Disini kami hanya meminta persetujuan anda terlebih dahulu
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 text-xs font-medium text-slate-700 leading-relaxed bg-white/90 p-4 rounded-2xl border border-primary-100 shadow-2xs">
+                  <div className="flex items-start gap-2.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary-700 mt-1.5 shrink-0" />
+                    <p>Data sudah kami terima dan sudah diinput di sistem perusahaan.</p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary-700 mt-1.5 shrink-0" />
+                    <p>Pinjaman yang sudah di acc / Saldo yang akan muncul di aplikasi Kreditpay nantinya tidak bisa di batalkan dengan alasan apapun.</p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary-700 mt-1.5 shrink-0" />
+                    <p>Apabila nasabah telat melakukan pembayaran tagihan, akan kami berikan waktu tambahan 3 hari, dan apabila belum ada itikad baik/belum membayar juga maka akan dikenakan denda sesuai dengan ketentuan perusahaan, dan apabila mengalami tunggakan dalam 2 bulan maka BI Checking anda akan buruk di seluruh Bank di Indonesia.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs font-bold pt-1">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] text-slate-400">Pernyataan Nasabah:</span>
+                    <p className="text-emerald-700 font-black flex items-center gap-1">
+                      <Check className="h-3.5 w-3.5 stroke-[3]" /> Telah Disetujui Nasabah
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400">Hormat Kami,</p>
+                    <p className="text-xs font-black text-primary-900 tracking-wider">KREDITPAY</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Tombol kembali ke Beranda */}
@@ -2280,6 +2332,98 @@ export default function PayLaterApplication() {
             >
               Saya Mengerti
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal Konfirmasi Persetujuan Nasabah (Sebelum Pengajuan Dikirim) */}
+      <Modal
+        open={openPersetujuanModal}
+        onClose={() => setOpenPersetujuanModal(false)}
+        title="Kebijakan Layanan dan Privasi"
+      >
+        <div className="flex flex-col space-y-4">
+          {/* Konten Ketentuan yang dapat di-scroll jika layar kecil */}
+          <div className="max-h-[48vh] overflow-y-auto pr-1 space-y-3.5 text-xs font-medium text-slate-700">
+            <div className="rounded-2xl bg-amber-50/80 border border-amber-200/80 p-3 text-center">
+              <p className="font-extrabold text-amber-900 text-xs">
+                Disini kami hanya meminta persetujuan anda terlebih dahulu
+              </p>
+            </div>
+
+            <div className="space-y-3 rounded-2xl bg-slate-50 border border-slate-100 p-4 leading-relaxed">
+              <div className="flex items-start gap-2.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-800 mt-2 shrink-0" />
+                <p className="text-slate-700">
+                  Data sudah kami terima dan sudah diinput di sistem perusahaan.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-800 mt-2 shrink-0" />
+                <p className="text-slate-700">
+                  Pinjaman yang sudah di acc / Saldo yang akan muncul di aplikasi Kreditpay nantinya tidak bisa di batalkan dengan alasan apapun.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-800 mt-2 shrink-0" />
+                <p className="text-slate-700">
+                  Apabila nasabah telat melakukan pembayaran tagihan, akan kami berikan waktu tambahan 3 hari, dan apabila belum ada itikad baik/belum membayar juga maka akan dikenakan denda sesuai dengan ketentuan perusahaan, dan apabila mengalami tunggakan dalam 2 bulan maka BI Checking anda akan buruk di seluruh Bank di Indonesia.
+                </p>
+              </div>
+            </div>
+
+            <div className="text-right pt-1 pr-1">
+              <p className="text-[11px] text-slate-400">Hormat Kami,</p>
+              <p className="text-xs font-black text-slate-900 tracking-wider">KREDITPAY</p>
+            </div>
+          </div>
+
+          {/* Section Persetujuan & Konfirmasi (Sesuai Referensi Gambar) */}
+          <div className="border-t border-slate-100 pt-3 space-y-3.5">
+            <label className="flex items-start gap-3 cursor-pointer select-none group">
+              <input
+                type="checkbox"
+                checked={agreedChecked}
+                onChange={(e) => setAgreedChecked(e.target.checked)}
+                className="sr-only"
+              />
+              <div
+                className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-all ${
+                  agreedChecked
+                    ? "bg-blue-600 border-blue-600 text-white shadow-xs"
+                    : "bg-white border-slate-300 text-transparent group-hover:border-slate-400"
+                }`}
+              >
+                <Check className="h-3.5 w-3.5 stroke-[3]" />
+              </div>
+              <span className="text-xs text-slate-600 leading-snug">
+                Saya telah membaca dan menyetujui Informasi Ketentuan dan Kebijakan Privasi oleh <strong className="text-slate-900 font-bold">Kreditpay</strong>
+              </span>
+            </label>
+
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                type="button"
+                disabled={submitting || !agreedChecked}
+                onClick={async () => {
+                  setOpenPersetujuanModal(false);
+                  await handleSubmitApplication();
+                }}
+                className="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-bold text-white shadow-md shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition active:scale-[0.99]"
+              >
+                {submitting ? "Memproses..." : "Konfirmasi"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOpenPersetujuanModal(false)}
+                className="w-full py-1.5 text-center text-xs font-bold text-slate-400 hover:text-slate-600 transition"
+              >
+                Batal
+              </button>
+            </div>
           </div>
         </div>
       </Modal>
