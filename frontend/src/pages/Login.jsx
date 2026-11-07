@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Eye, EyeOff, Fingerprint } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import useAuth from "@/hooks/useAuth";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -87,16 +87,10 @@ export default function Login() {
         </div>
 
         <div className="mt-auto pt-10 pb-20">
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => toast("Login sidik jari belum tersedia", { icon: "ℹ️" })}
-              aria-label="Masuk dengan sidik jari"
-              className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-slate-100 bg-slate-50 text-primary-700"
-            >
-              <Fingerprint className="h-7 w-7" />
-            </button>
-            <Button type="submit" loading={loading} className="h-14 flex-1 text-lg">Masuk Sekarang</Button>
+          <div>
+            <Button type="submit" loading={loading} className="h-14 w-full text-lg">
+              Masuk Sekarang
+            </Button>
           </div>
           <p className="mt-6 text-center font-semibold text-slate-500">
             Belum punya akun? <Link to="/register" className="font-extrabold text-accent-600">Daftar disini</Link>
