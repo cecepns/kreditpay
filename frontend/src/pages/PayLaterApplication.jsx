@@ -1108,8 +1108,11 @@ export default function PayLaterApplication() {
                 </div>
                 {/* Ikon Roket meluncur di atas track */}
                 <div
-                  className="absolute -top-1 transition-all duration-700 pointer-events-none text-xl"
-                  style={{ left: `calc(${Math.min(92, Math.max(0, progress))}% - 12px)` }}
+                  className="absolute -top-1 transition-all duration-700 pointer-events-none text-xl select-none leading-none"
+                  style={{
+                    left: `${Math.min(100, Math.max(0, progress))}%`,
+                    transform: `translateX(-${Math.min(100, Math.max(0, progress))}%)`,
+                  }}
                 >
                   🚀
                 </div>
