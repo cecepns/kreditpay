@@ -88,7 +88,7 @@ export default function LevelLockModal({
 
   // Parse detail_content untuk Pindah Saldo (fee_warning & fee_amount)
   let pindahFeeWarning =
-    "Perpindahan Saldo PayLater ke Saldo utama membutuhkan Dana Layanan. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.\n\nDana Layanan ini Akan Tetap Masuk ke Saldo Anda, tidak diambil perusahaan.";
+    "Perpindahan Saldo Pinjaman ke Saldo utama membutuhkan Dana Layanan. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.\n\nDana Layanan ini Akan Tetap Masuk ke Saldo Anda, tidak diambil perusahaan.";
   let pindahFeeAmount = 100000;
 
   try {
@@ -282,7 +282,7 @@ export default function LevelLockModal({
 
             <p className="text-xs sm:text-sm font-black text-slate-800 leading-snug">
               Mohon Maaf Saat ini Transaksi gagal.<br />
-              Karena Akun Anda dalam <span className="text-red-600">Mode Paylater</span>.
+              Karena Akun Anda dalam <span className="text-red-600">Mode Pinjaman</span>.
             </p>
 
             <p className="text-xs font-semibold text-slate-500">
@@ -290,7 +290,7 @@ export default function LevelLockModal({
             </p>
 
             <div className="rounded-2xl border border-red-200/80 bg-white/90 p-3 text-xs font-bold leading-relaxed text-red-600 shadow-sm">
-              Segera cairkan Saldo Paylater Anda Terlebih dahulu untuk membuka fitur ini.
+              Segera cairkan Saldo Pinjaman Anda Terlebih dahulu untuk membuka fitur ini.
             </div>
           </div>
 
@@ -298,12 +298,16 @@ export default function LevelLockModal({
             type="button"
             onClick={() => {
               onClose();
-              onAction?.("cairkan");
+              if (onTopUp) {
+                onTopUp();
+              } else {
+                onAction?.("cairkan");
+              }
             }}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-700 py-4 text-base font-black text-white shadow-lg shadow-primary-700/30 transition hover:bg-primary-800 active:scale-[0.98]"
           >
             <Banknote className="h-5 w-5" />
-            Cairkan PayLater
+            Cairkan Pinjaman
           </button>
 
           <button
@@ -561,7 +565,7 @@ export default function LevelLockModal({
               {cPindah.title || "Transfer Saldo"}
               <br />
               <span className="text-[#00D1B2]">
-                {cPindah.subtitle || "PayLater Sedang Proses"}
+                {cPindah.subtitle || "Pinjaman Sedang Proses"}
               </span>
             </h3>
           )}
@@ -569,7 +573,7 @@ export default function LevelLockModal({
           {/* Kotak Putih Deskripsi */}
           <div className="mt-4 rounded-3xl border border-slate-100 bg-[#F8FAFC] p-5 text-center space-y-4 shadow-sm">
             <p className="text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed">
-              {cPindah.message || "Permintaan pemindahan limit PayLater ke Saldo Utama Anda sedang diproses oleh sistem."}
+              {cPindah.message || "Permintaan pemindahan limit Pinjaman ke Saldo Utama Anda sedang diproses oleh sistem."}
             </p>
             <p className="text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed">
               {cPindah.note || "Silakan lakukan konfirmasi pemindahan saldo untuk melanjutkan transaksi."}
@@ -594,11 +598,11 @@ export default function LevelLockModal({
             Konfirmasi Pemindahan
           </h3>
 
-          {/* Card 1: Sumber Dana Saldo PayLater */}
+          {/* Card 1: Sumber Dana Saldo Pinjaman */}
           <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 flex items-center justify-between">
             <div>
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                SUMBER DANA: SALDO PAYLATER
+                SUMBER DANA: SALDO PINJAMAN
               </p>
               <p className="mt-1 text-lg font-black text-slate-800">
                 {formatRupiah(user?.paylater_limit ?? 1000000000)}
@@ -683,7 +687,7 @@ export default function LevelLockModal({
               </span>
               <div className="text-xs font-semibold text-slate-700 leading-relaxed space-y-2">
                 <p>
-                  Perpindahan Saldo PayLater ke Saldo utama membutuhkan <b>Dana Layanan</b>. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.
+                  Perpindahan Saldo Pinjaman ke Saldo utama membutuhkan <b>Dana Layanan</b>. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.
                 </p>
                 <p className="font-bold text-amber-900">
                   Dana Layanan ini Akan Tetap Masuk ke Saldo Anda, tidak diambil perusahaan.
@@ -700,7 +704,7 @@ export default function LevelLockModal({
             </div>
             <div className="flex items-center justify-between py-2.5">
               <span className="text-slate-500">Dari Saldo</span>
-              <span className="font-black text-slate-800">Saldo PayLater</span>
+              <span className="font-black text-slate-800">Saldo Pinjaman</span>
             </div>
             <div className="flex items-center justify-between py-2.5">
               <span className="text-slate-500">Jumlah Saldo</span>

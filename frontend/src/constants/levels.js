@@ -21,7 +21,7 @@ export const USER_LEVELS = [
     level: 2,
     title: "Level 2",
     subtitle: "Info Autodebet",
-    description: "Transfer membutuhkan integrasi Autodebet. Transaksi Pulsa/PPOB menampilkan error Mode Paylater.",
+    description: "Transfer membutuhkan integrasi Autodebet. Transaksi Pulsa/PPOB menampilkan error Mode Pinjaman.",
     icon: CreditCard,
     tone: "bg-blue-50 text-blue-600",
   },

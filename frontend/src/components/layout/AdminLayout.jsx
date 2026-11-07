@@ -10,7 +10,7 @@ const NAV = [
   { to: "/admin/dashboard", label: "Akses Cepat", icon: LayoutGrid },
   { to: "/admin/chat", label: "Live Chat CS", icon: MessagesSquare },
   { to: "/admin/promos", label: "Info & Promo", icon: Sparkles },
-  { to: "/admin/paylater", label: "Pengajuan PayLater", icon: FileText },
+  { to: "/admin/paylater", label: "Pengajuan Pinjaman", icon: FileText },
   { to: "/admin/levels", label: "Master Level", icon: Layers },
   { to: "/admin/users", label: "Pengguna", icon: Users },
   { to: "/admin/banks", label: "Rekening Bank", icon: Landmark },

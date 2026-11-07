@@ -62,7 +62,7 @@ export default function AdminPayLater() {
         default_limit: bulkLimit,
       };
       const res = await post(API_ENDPOINTS.ADMIN.PAYLATER.BULK_APPROVE, payload);
-      toast.success(res.message || "Pengajuan PayLater berhasil disetujui sekaligus!");
+      toast.success(res.message || "Pengajuan Pinjaman berhasil disetujui sekaligus!");
       setOpenBulkModal(false);
       setSelectedIds([]);
       reload();
@@ -110,9 +110,9 @@ export default function AdminPayLater() {
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Pengajuan PayLater</h1>
+          <h1 className="text-2xl font-black text-slate-900">Pengajuan Pinjaman</h1>
           <p className="text-xs font-semibold text-slate-500">
-            Kelola verifikasi berkas dan aktivasi limit PayLater pengguna.
+            Kelola verifikasi berkas dan aktivasi limit Pinjaman pengguna.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -221,7 +221,7 @@ export default function AdminPayLater() {
           <EmptyState
             icon={FileText}
             title="Belum Ada Pengajuan"
-            description="Belum ada pengguna yang mengajukan aktivasi PayLater."
+            description="Belum ada pengguna yang mengajukan aktivasi Pinjaman."
           />
         ) : (
           <>
@@ -473,7 +473,7 @@ export default function AdminPayLater() {
       <Modal
         open={!!selectedApp}
         onClose={() => setSelectedApp(null)}
-        title={`Verifikasi PayLater: ${selectedApp?.user_name || selectedApp?.username}`}
+        title={`Verifikasi Pinjaman: ${selectedApp?.user_name || selectedApp?.username}`}
       >
         {selectedApp && (
           <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
@@ -807,7 +807,7 @@ export default function AdminPayLater() {
             {selectedApp.status !== "approved" && (
               <div className="rounded-2xl border border-primary-100 bg-primary-50/50 p-4 space-y-2">
                 <label className="block text-xs font-bold text-primary-900">
-                  Limit PayLater yang Diberikan (Rp)
+                  Limit Pinjaman yang Diberikan (Rp)
                 </label>
                 <input
                   type="number"
@@ -867,7 +867,7 @@ export default function AdminPayLater() {
             </p>
             <p className="text-xs font-medium text-amber-800 leading-relaxed">
               {bulkMode === "all_pending"
-                ? "Sistem akan secara otomatis menyetujui seluruh pengajuan PayLater yang berstatus Menunggu Verifikasi di database tanpa perlu membuka satu per satu."
+                ? "Sistem akan secara otomatis menyetujui seluruh pengajuan Pinjaman yang berstatus Menunggu Verifikasi di database tanpa perlu membuka satu per satu."
                 : `Sistem akan menyetujui ${selectedIds.length} pengajuan yang telah Anda pilih sekaligus.`}
             </p>
           </div>

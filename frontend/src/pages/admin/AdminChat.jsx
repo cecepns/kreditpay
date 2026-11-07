@@ -26,9 +26,9 @@ import Button from "@/components/ui/Button";
 
 const QUICK_REPLIES = [
   "Halo kak, ada yang bisa kami bantu seputar akun Anda?",
-  "Pengajuan PayLater Anda sedang dalam proses verifikasi tim analis kami ya kak.",
+  "Pengajuan Pinjaman Anda sedang dalam proses verifikasi tim analis kami ya kak.",
   "Dokumen Anda telah kami terima dengan baik. Mohon menunggu proses approval.",
-  "Limit PayLater Anda sudah berhasil kami setujui dan aktif ya kak. Selamat menikmati kemudahan bertransaksi!",
+  "Limit Pinjaman Anda sudah berhasil kami setujui dan aktif ya kak. Selamat menikmati kemudahan bertransaksi!",
   "Terima kasih telah menghubungi Customer Care KreditPay.",
 ];
 
@@ -409,7 +409,7 @@ export default function AdminChat() {
                     {formatRupiah(selectedUser.balance || 0)}
                   </div>
                   <div className="rounded-xl border border-primary-200 bg-primary-50 px-3 py-1.5 font-bold text-primary-800">
-                    <span className="text-primary-600/70 font-normal">PayLater: </span>
+                    <span className="text-primary-600/70 font-normal">Pinjaman: </span>
                     {formatRupiah(selectedUser.paylater_limit || 0)}
                   </div>
                 </div>

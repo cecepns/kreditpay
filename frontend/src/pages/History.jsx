@@ -29,7 +29,7 @@ export default function History() {
                 <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${meta.tone}`}><meta.icon className="h-5 w-5" /></span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-extrabold text-slate-800">{t.title}</p>
-                  <p className="text-xs font-semibold text-slate-400">{formatDateTime(t.created_at)}{t.source === "paylater" && " • PayLater"}</p>
+                  <p className="text-xs font-semibold text-slate-400">{formatDateTime(t.created_at)}{t.source === "paylater" && " • Pinjaman"}</p>
                 </div>
                 <p className={`font-extrabold ${meta.sign === "+" ? "text-emerald-600" : "text-slate-800"}`}>{meta.sign}{formatRupiah(t.amount)}</p>
               </li>

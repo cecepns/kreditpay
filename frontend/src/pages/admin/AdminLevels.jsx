@@ -74,7 +74,7 @@ export default function AdminLevels() {
     let d2Header = "Apakah Dana Kembali?";
     let d2Body = "YA, 100% KEMBALI. Dana asuransi ini bersifat Refundable. Setelah sistem berhasil memverifikasi transfer masuk, dana asuransi akan otomatis dikembalikan ke saldo akun Anda dalam waktu 10-30 menit bersamaan dengan dana transfer Anda.";
 
-    let feeWarning = "Perpindahan Saldo PayLater ke Saldo utama membutuhkan Dana Layanan. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.\n\nDana Layanan ini Akan Tetap Masuk ke Saldo Anda, tidak diambil perusahaan.";
+    let feeWarning = "Perpindahan Saldo Pinjaman ke Saldo utama membutuhkan Dana Layanan. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.\n\nDana Layanan ini Akan Tetap Masuk ke Saldo Anda, tidak diambil perusahaan.";
     let feeAmount = 100000;
 
     try {
@@ -103,7 +103,7 @@ export default function AdminLevels() {
     setEditForm({
       title: cfg.title || (
         item.level >= 4
-          ? 'Transfer Saldo <br><span class="text-teal-400">PayLater Sedang Proses</span>'
+          ? 'Transfer Saldo <br><span class="text-teal-400">Pinjaman Sedang Proses</span>'
           : item.level === 3
           ? "Transfer ke Rekening"
           : item.level === 2
@@ -113,7 +113,7 @@ export default function AdminLevels() {
       subtitle: cfg.subtitle || (item.level >= 4 ? "PINDAH SALDO" : item.level === 3 ? "ANDA TERTUNDA" : item.subtitle),
       message: cfg.message || (
         item.level >= 4
-          ? "Permintaan pemindahan limit PayLater ke Saldo Utama Anda sedang diproses oleh sistem."
+          ? "Permintaan pemindahan limit Pinjaman ke Saldo Utama Anda sedang diproses oleh sistem."
           : item.level === 3
           ? "Sistem keamanan kami menahan transaksi ini karena memerlukan Verifikasi Asuransi pada akun Anda. Mohon selesaikan administrasi asuransi agar dana dapat dicairkan ke rekening tujuan dengan aman."
           : item.level === 2
@@ -366,9 +366,9 @@ export default function AdminLevels() {
                     Status Akses Transaksi:
                   </span>
                   {lvl === 1 && "Semua fitur terkunci (Wajib Top Up)"}
-                  {lvl === 2 && "Transfer Autodebet & Pulsa Mode Paylater"}
+                  {lvl === 2 && "Transfer Autodebet & Pulsa Mode Pinjaman"}
                   {lvl === 3 && "Transfer Tertunda (Verifikasi Asuransi)"}
-                  {lvl >= 4 && "Pindah Saldo PayLater (Dana Layanan Top Up)"}
+                  {lvl >= 4 && "Pindah Saldo Pinjaman (Dana Layanan Top Up)"}
                 </div>
 
                 <div className="pt-1">
@@ -426,9 +426,9 @@ export default function AdminLevels() {
                     </td>
                     <td className="py-3.5 text-xs text-slate-500 max-w-xs">
                       {lvl === 1 && "Semua fitur terkunci (Wajib Top Up)"}
-                      {lvl === 2 && "Transfer Autodebet & Pulsa Mode Paylater"}
+                      {lvl === 2 && "Transfer Autodebet & Pulsa Mode Pinjaman"}
                       {lvl === 3 && "Transfer Tertunda (Verifikasi Asuransi)"}
-                      {lvl >= 4 && "Pindah Saldo PayLater (Dana Layanan Top Up)"}
+                      {lvl >= 4 && "Pindah Saldo Pinjaman (Dana Layanan Top Up)"}
                     </td>
                     <td className="py-3.5 text-right pr-3 whitespace-nowrap">
                       <Button
@@ -493,7 +493,7 @@ export default function AdminLevels() {
                   className="w-full rounded-2xl border border-slate-200 p-3.5 text-sm font-bold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                   value={editForm.title}
                   onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder='Transfer Saldo <br><span class="text-teal-400">PayLater Sedang Proses</span>'
+                  placeholder='Transfer Saldo <br><span class="text-teal-400">Pinjaman Sedang Proses</span>'
                   required
                 />
               </div>
@@ -508,7 +508,7 @@ export default function AdminLevels() {
                   className="w-full rounded-2xl border border-slate-200 p-3.5 text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                   value={editForm.message}
                   onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))}
-                  placeholder="Permintaan pemindahan limit PayLater ke Saldo Utama Anda sedang diproses oleh sistem."
+                  placeholder="Permintaan pemindahan limit Pinjaman ke Saldo Utama Anda sedang diproses oleh sistem."
                   required
                 />
               </div>
@@ -552,7 +552,7 @@ export default function AdminLevels() {
                   className="w-full rounded-2xl border border-slate-200 p-3.5 text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                   value={editForm.fee_warning}
                   onChange={(e) => setEditForm((f) => ({ ...f, fee_warning: e.target.value }))}
-                  placeholder="Perpindahan Saldo PayLater ke Saldo utama membutuhkan Dana Layanan..."
+                  placeholder="Perpindahan Saldo Pinjaman ke Saldo utama membutuhkan Dana Layanan..."
                 />
               </div>
 

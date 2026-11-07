@@ -50,7 +50,7 @@ export const actionConfigs = {
         name: "source",
         label: "Bayar dengan",
         as: "select",
-        options: [{ value: "balance", label: "Saldo Utama" }, { value: "paylater", label: "Saldo PayLater" }],
+        options: [{ value: "balance", label: "Saldo Utama" }, { value: "paylater", label: "Saldo Pinjaman" }],
       },
     ],
     payload: (v) => ({ service: service.key, target: v.target.trim(), amount: Number(v.amount), source: v.source }),

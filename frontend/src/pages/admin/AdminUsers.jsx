@@ -54,7 +54,7 @@ const form = {
       as: "select",
       options: [
         { value: "1", label: "Level 1 - Pop-up Terkunci (Wajib Top Up)" },
-        { value: "2", label: "Level 2 - Info Autodebet & Mode Paylater" },
+        { value: "2", label: "Level 2 - Info Autodebet & Mode Pinjaman" },
         { value: "3", label: "Level 3 - Info Asuransi (Proteksi Transaksi)" },
         { value: "4", label: "Level 4 - Pindah Saldo" },
         { value: "5", label: "Level 5 - Pengembangan 1" },
@@ -64,7 +64,7 @@ const form = {
     },
     { name: "role", label: "Role", as: "select", options: [{ value: "user", label: "User" }, { value: "admin", label: "Admin" }] },
     { name: "balance", label: "Saldo utama", type: "number" },
-    { name: "paylater_limit", label: "Limit PayLater", type: "number" },
+    { name: "paylater_limit", label: "Limit Pinjaman", type: "number" },
   ],
   validate: (v, isEdit) => {
     const e = {};
@@ -87,5 +87,5 @@ const api = {
 };
 
 export default function AdminUsers() {
-  return <ResourcePage title="Pengguna" subtitle="Kelola akun, saldo, dan limit PayLater." listUrl={E.LIST} columns={columns} form={form} api={api} />;
+  return <ResourcePage title="Pengguna" subtitle="Kelola akun, saldo, dan limit Pinjaman." listUrl={E.LIST} columns={columns} form={form} api={api} />;
 }

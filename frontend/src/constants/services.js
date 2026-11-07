@@ -13,6 +13,6 @@ export const SERVICES = [
 
 export const PROMOS = [
   { id: 1, tag: "FOOD", title: "Diskon Rp 20rb Merchant Pilihan", style: "from-emerald-500 to-accent-500" },
-  { id: 2, tag: "PAYLATER", title: "Cicilan 0% untuk 3 bulan pertama", style: "from-indigo-500 to-primary-600" },
+  { id: 2, tag: "PINJAMAN", title: "Cicilan 0% untuk 3 bulan pertama", style: "from-indigo-500 to-primary-600" },
   { id: 3, tag: "PULSA", title: "Cashback 10% isi pulsa pertama", style: "from-rose-500 to-orange-400" },
 ];

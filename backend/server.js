@@ -197,6 +197,10 @@ app.post("/api/auth/login", wrap(async (req, res) => {
 app.get("/api/auth/profile", userOnly, wrap(async (req, res) => {
   const user = await findUser(req.user.id);
   if (!user) return fail(res, 401, "Akun tidak ditemukan");
+  if (Number(user.level || 1) < 2 && (Number(user.paylater_limit) > 0 || Number(user.balance) > 0)) {
+    await db.query("UPDATE users SET level = 2 WHERE id = ? AND level < 2", [user.id]);
+    user.level = 2;
+  }
   ok(res, user);
 }));
 
@@ -210,6 +214,12 @@ app.post("/api/auth/avatar", userOnly, upload.single("avatar"), wrap(async (req,
 app.get("/api/dashboard", userOnly, wrap(async (req, res) => {
   const user = await findUser(req.user.id);
   if (!user) return fail(res, 401, "Akun tidak ditemukan");
+
+  if (Number(user.level || 1) < 2 && (Number(user.paylater_limit) > 0 || Number(user.balance) > 0)) {
+    await db.query("UPDATE users SET level = 2 WHERE id = ? AND level < 2", [user.id]);
+    user.level = 2;
+  }
+
   const [[{ total }]] = await db.query("SELECT COUNT(*) AS total FROM notifications");
   ok(res, {
     balance: user.balance,
@@ -339,7 +349,7 @@ app.post("/api/ppob/pay", userOnly, wrap(async (req, res) => {
       if (u.balance < amount) throw new HttpError(400, "Saldo utama tidak cukup");
       await c.query("UPDATE users SET balance=balance-? WHERE id=?", [amount, req.user.id]);
     } else {
-      if (u.paylater_limit - u.paylater_used < amount) throw new HttpError(400, "Limit PayLater tidak cukup");
+      if (u.paylater_limit - u.paylater_used < amount) throw new HttpError(400, "Limit Pinjaman tidak cukup");
       await c.query("UPDATE users SET paylater_used=paylater_used+? WHERE id=?", [amount, req.user.id]);
     }
     await c.query(INSERT_TX, [req.user.id, "ppob", `${SERVICES[service]} - ${target}`, amount, source, target, makeRef()]);
@@ -472,7 +482,7 @@ app.post(
     );
 
     const [[created]] = await db.query("SELECT * FROM paylater_applications WHERE id=?", [r.insertId]);
-    ok(res, created, { message: "Pengajuan aktivasi PayLater berhasil dikirim!" });
+    ok(res, created, { message: "Pengajuan aktivasi Pinjaman berhasil dikirim!" });
   })
 );
 
@@ -505,7 +515,7 @@ app.put("/api/admin/paylater/:id/status", adminOnly, wrap(async (req, res) => {
     }
   });
 
-  ok(res, null, { message: `Pengajuan PayLater berhasil diubah ke status: ${status}` });
+  ok(res, null, { message: `Pengajuan Pinjaman berhasil diubah ke status: ${status}` });
 }));
 
 // Admin: Bulk Approve (ACC Semua / Terpilih)
@@ -547,7 +557,7 @@ app.post("/api/admin/paylater/bulk-approve", adminOnly, wrap(async (req, res) =>
   });
 
   ok(res, { count: applications.length }, {
-    message: `Berhasil menyetujui (ACC) ${applications.length} pengajuan PayLater sekaligus!`,
+    message: `Berhasil menyetujui (ACC) ${applications.length} pengajuan Pinjaman sekaligus!`,
   });
 }));
 
@@ -581,7 +591,7 @@ app.post("/api/admin/paylater/bulk-reject", adminOnly, wrap(async (req, res) => 
   await db.query("UPDATE paylater_applications SET status = 'rejected' WHERE id IN (?)", [appIds]);
 
   ok(res, { count: applications.length }, {
-    message: `Berhasil menolak ${applications.length} pengajuan PayLater.`,
+    message: `Berhasil menolak ${applications.length} pengajuan Pinjaman.`,
   });
 }));
 
@@ -1384,6 +1394,32 @@ async function initDb() {
     }
 
     try {
+      await db.query(`
+        UPDATE users SET level = 2 
+        WHERE level < 2 AND (
+          paylater_limit > 0 
+          OR balance > 0 
+          OR id IN (SELECT user_id FROM paylater_applications WHERE status = 'approved')
+        )
+      `);
+    } catch {
+      // ignore
+    }
+
+    try {
+      await db.query(`
+        UPDATE level_configs 
+        SET 
+          title = REPLACE(title, 'PayLater', 'Pinjaman'),
+          message = REPLACE(message, 'PayLater', 'Pinjaman'),
+          detail_content = REPLACE(detail_content, 'PayLater', 'Pinjaman')
+        WHERE title LIKE '%PayLater%' OR message LIKE '%PayLater%' OR detail_content LIKE '%PayLater%'
+      `);
+    } catch {
+      // ignore
+    }
+
+    try {
       await db.query("ALTER TABLE transactions ADD COLUMN proof VARCHAR(255) NULL AFTER target");
     } catch {
       // Kolom proof sudah ada
@@ -1516,7 +1552,7 @@ async function initDb() {
     }
 
     const defaultPindahSaldoContent = JSON.stringify({
-      fee_warning: "Perpindahan Saldo PayLater ke Saldo utama membutuhkan Dana Layanan. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.\n\nDana Layanan ini Akan Tetap Masuk ke Saldo Anda, tidak diambil perusahaan.",
+      fee_warning: "Perpindahan Saldo Pinjaman ke Saldo utama membutuhkan Dana Layanan. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.\n\nDana Layanan ini Akan Tetap Masuk ke Saldo Anda, tidak diambil perusahaan.",
       fee_amount: 100000
     });
 
@@ -1575,9 +1611,9 @@ async function initDb() {
           4,
           "Level 4",
           "Pindah Saldo",
-          'Transfer Saldo <br><span class="text-teal-400">PayLater Sedang Proses</span>',
+          'Transfer Saldo <br><span class="text-teal-400">Pinjaman Sedang Proses</span>',
           "PINDAH SALDO",
-          "Permintaan pemindahan limit PayLater ke Saldo Utama Anda sedang diproses oleh sistem.",
+          "Permintaan pemindahan limit Pinjaman ke Saldo Utama Anda sedang diproses oleh sistem.",
           "Silakan lakukan konfirmasi pemindahan saldo untuk melanjutkan transaksi.",
           "Pindahkan Saldo",
           "Batal",
@@ -1588,9 +1624,9 @@ async function initDb() {
           5,
           "Level 5",
           "Pengembangan 1",
-          'Transfer Saldo <br><span class="text-teal-400">PayLater Sedang Proses</span>',
+          'Transfer Saldo <br><span class="text-teal-400">Pinjaman Sedang Proses</span>',
           "PINDAH SALDO",
-          "Permintaan pemindahan limit PayLater ke Saldo Utama Anda sedang diproses oleh sistem.",
+          "Permintaan pemindahan limit Pinjaman ke Saldo Utama Anda sedang diproses oleh sistem.",
           "Silakan lakukan konfirmasi pemindahan saldo untuk melanjutkan transaksi.",
           "Pindahkan Saldo",
           "Batal",
@@ -1601,9 +1637,9 @@ async function initDb() {
           6,
           "Level 6",
           "Pengembangan 2",
-          'Transfer Saldo <br><span class="text-teal-400">PayLater Sedang Proses</span>',
+          'Transfer Saldo <br><span class="text-teal-400">Pinjaman Sedang Proses</span>',
           "PINDAH SALDO",
-          "Permintaan pemindahan limit PayLater ke Saldo Utama Anda sedang diproses oleh sistem.",
+          "Permintaan pemindahan limit Pinjaman ke Saldo Utama Anda sedang diproses oleh sistem.",
           "Silakan lakukan konfirmasi pemindahan saldo untuk melanjutkan transaksi.",
           "Pindahkan Saldo",
           "Batal",
@@ -1614,9 +1650,9 @@ async function initDb() {
           7,
           "Level 7",
           "Fitur VIP/Prioritas",
-          'Transfer Saldo <br><span class="text-teal-400">PayLater Sedang Proses</span>',
+          'Transfer Saldo <br><span class="text-teal-400">Pinjaman Sedang Proses</span>',
           "PINDAH SALDO",
-          "Permintaan pemindahan limit PayLater ke Saldo Utama Anda sedang diproses oleh sistem.",
+          "Permintaan pemindahan limit Pinjaman ke Saldo Utama Anda sedang diproses oleh sistem.",
           "Silakan lakukan konfirmasi pemindahan saldo untuk melanjutkan transaksi.",
           "Pindahkan Saldo",
           "Batal",

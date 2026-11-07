@@ -26,6 +26,10 @@ import {
   BriefcaseMedical,
   GraduationCap,
   Globe,
+  Sparkles,
+  ShieldCheck,
+  Zap,
+  Calendar,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -63,27 +67,54 @@ const TENOR_OPTIONS = [
   { value: 60, label: "60 Bulan" },
 ];
 
+const TENOR_VALUES = [12, 24, 36, 48, 60];
+
 export default function PayLaterApplication() {
   const navigate = useNavigate();
   const [stage, setStage] = useState("aktivasi"); // "aktivasi" | "simulasi" | "lengkapi_data" | "data_nasabah" | "data_tambahan"
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [application, setApplication] = useState(null);
 
-  // Simulasi Pinjaman states (Sesuai Referensi Gambar)
+  // Simulasi Pinjaman states (Model Slider Interaktif)
   const [requestedAmount, setRequestedAmount] = useState(300000000);
   const [requestedTenor, setRequestedTenor] = useState(12);
-  const [showRincian, setShowRincian] = useState(true);
   const [openSyaratModal, setOpenSyaratModal] = useState(false);
 
   // Perhitungan bunga flat 2% per tahun (0.1667% per bulan)
-  const calculateInstallment = (amount, tenor) => {
+  const calculateDetails = (amount, tenor) => {
     const annualInterestRate = 0.02;
     const totalInterest = Math.round(amount * annualInterestRate * (tenor / 12));
     const totalAmount = amount + totalInterest;
-    return Math.round(totalAmount / tenor);
+    const monthly = Math.round(totalAmount / tenor);
+    return { totalInterest, totalAmount, monthly };
   };
 
-  const monthlyInstallment = calculateInstallment(requestedAmount, requestedTenor);
+  const {
+    totalInterest,
+    totalAmount: totalPayment,
+    monthly: monthlyInstallment,
+  } = calculateDetails(requestedAmount, requestedTenor);
+
+  // Perhitungan tanggal jatuh tempo dinamis
+  const getDueDate = (tenorMonths) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + Number(tenorMonths));
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mei",
+      "Jun",
+      "Jul",
+      "Agu",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Des",
+    ];
+    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  };
 
   // Open API Wilayah states
   const [provinces, setProvinces] = useState([]);
@@ -739,7 +770,7 @@ export default function PayLaterApplication() {
 
     try {
       const res = await upload(API_ENDPOINTS.PAYLATER.APPLY, form);
-      toast.success(res.message || "Pengajuan PayLater berhasil dikirim!");
+      toast.success(res.message || "Pengajuan Pinjaman berhasil dikirim!");
       setApplication(res.data);
     } catch (err) {
       toast.error(err.message || "Gagal mengirim pengajuan");
@@ -763,7 +794,7 @@ export default function PayLaterApplication() {
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <h1 className="text-xl font-black text-slate-900">Aktivasi PayLater</h1>
+              <h1 className="text-xl font-black text-slate-900">Aktivasi Pinjaman</h1>
             </div>
 
             {/* Ilustrasi Laptop 3D & Kopi */}
@@ -811,7 +842,7 @@ export default function PayLaterApplication() {
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-black text-slate-900">Pengajuan Mudah</h2>
               <p className="mx-auto max-w-xs text-sm font-semibold text-slate-500 leading-relaxed">
-                Nikmati limit belanja hingga <b className="text-primary-700">Rp 50.000.000</b> dengan proses kilat tanpa ribet.
+                Nikmati limit Pinjaman hingga <b className="text-primary-700">Rp 500.000.000</b> dengan proses kilat tanpa ribet.
               </p>
             </div>
 
@@ -881,160 +912,237 @@ export default function PayLaterApplication() {
             </div>
           </div>
 
-          {/* Tombol Aktivasi PayLater (Toska) */}
+          {/* Tombol Aktivasi Pinjaman (Toska) */}
           <button
             type="button"
             onClick={() => setStage("simulasi")}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#00D1B2] py-4 text-base font-black text-white shadow-lg shadow-[#00D1B2]/30 transition hover:bg-[#00c4a7] active:scale-[0.98]"
           >
-            Aktivasi PayLater
+            Aktivasi Pinjaman
             <ArrowRight className="h-5 w-5" />
           </button>
         </div>
       )}
 
-      {/* ── TAHAP 1.5: SIMULASI PINJAMAN (SESUAI GAMBAR REFERENSI USER) ── */}
+      {/* ── TAHAP 1.5: SIMULASI PINJAMAN (MODEL SLIDER INTERAKTIF SESUAI GAMBAR USER) ── */}
       {stage === "simulasi" && (
-        <div className="flex flex-col min-h-screen justify-between p-6 bg-slate-50">
-          <div className="space-y-4">
-            {/* Top Bar Navigasi */}
-            <div className="flex items-center gap-4 py-2">
-              <button
-                type="button"
-                onClick={() => setStage("aktivasi")}
-                className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-slate-700 shadow-sm hover:bg-slate-100 transition"
-                aria-label="Kembali"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <h1 className="text-xl font-black text-slate-900">Simulasi Pinjaman</h1>
-            </div>
-
-            {/* Kotak Utama: Pilih Pinjaman (Sesuai Screenshot Gambar 1 & 2) */}
-            <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-sm space-y-5">
-              <div className="space-y-1">
-                <h2 className="text-xl font-bold text-slate-800">Pilih Pinjaman</h2>
-                <p className="text-xs font-semibold text-slate-500">Klik Menu Dibawah Untuk Pilih :</p>
-              </div>
-
-              {/* Selector 1: Jumlah Pinjaman */}
-              <div className="relative pt-1">
-                <label className="absolute -top-2 left-3 bg-white px-2 text-[11px] font-bold text-slate-700 z-10">
-                  Jumlah Pinjaman
-                </label>
-                <div className="relative">
-                  <select
-                    value={requestedAmount}
-                    onChange={(e) => setRequestedAmount(Number(e.target.value))}
-                    className="w-full appearance-none rounded-xl border-2 border-slate-700 bg-white px-4 py-3.5 pr-10 text-sm font-black text-slate-800 shadow-xs focus:border-amber-600 focus:outline-none"
-                  >
-                    {LOAN_AMOUNT_OPTIONS.map((amt) => (
-                      <option key={amt} value={amt}>
-                        {formatRupiah(amt)}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-700" />
-                </div>
-              </div>
-
-              {/* Selector 2: Jangka Waktu */}
-              <div className="relative pt-1">
-                <label className="absolute -top-2 left-3 bg-white px-2 text-[11px] font-bold text-slate-700 z-10">
-                  Jangka Waktu
-                </label>
-                <div className="relative">
-                  <select
-                    value={requestedTenor}
-                    onChange={(e) => setRequestedTenor(Number(e.target.value))}
-                    className="w-full appearance-none rounded-xl border-2 border-slate-700 bg-white px-4 py-3.5 pr-10 text-sm font-black text-slate-800 shadow-xs focus:border-amber-600 focus:outline-none"
-                  >
-                    {TENOR_OPTIONS.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ClipboardList className="pointer-events-none absolute right-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-700" />
-                </div>
-              </div>
-
-              {/* Rincian Simulasi (Accordion / Expansion Sesuai Gambar 2) */}
-              <div className="pt-2 border-t border-slate-100">
+        <div className="flex flex-col min-h-screen bg-slate-50 pb-12">
+          {/* Top Hero Banner dengan Latar Gradien & Ambient Glow */}
+          <header className="relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-800 to-indigo-900 px-5 pt-6 pb-20 text-white rounded-b-[2.5rem] shadow-xl">
+            {/* Latar Grafis & Glow Ambient */}
+            <div className="pointer-events-none absolute -right-12 -top-12 h-60 w-60 rounded-full bg-white/10 blur-3xl" />
+            <div className="pointer-events-none absolute left-10 -bottom-10 h-48 w-48 rounded-full bg-teal-400/20 blur-2xl" />
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => setShowRincian(!showRincian)}
-                  className="flex items-center justify-center gap-1.5 w-full py-1 text-xs font-bold text-slate-600 hover:text-slate-800 transition"
+                  onClick={() => setStage("aktivasi")}
+                  className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 backdrop-blur-md text-white hover:bg-white/25 transition active:scale-95 shadow-sm"
+                  aria-label="Kembali"
                 >
-                  <ChevronUp
-                    className={`h-4 w-4 transition-transform duration-200 ${
-                      showRincian ? "" : "rotate-180"
-                    }`}
-                  />
-                  <span>Atur kembali jumlah pinjaman</span>
+                  <ArrowLeft className="h-5 w-5" />
                 </button>
-
-                {showRincian && (
-                  <div className="mt-4 space-y-3 pt-1">
-                    <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
-                      <span className="text-slate-500">Total Pinjaman Diterima</span>
-                      <span className="font-bold text-slate-800">{formatRupiah(requestedAmount)}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
-                      <span className="text-slate-500">Jumlah Pinjaman</span>
-                      <span className="font-bold text-slate-800">{formatRupiah(requestedAmount)}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
-                      <span className="text-slate-500">Jangka Waktu</span>
-                      <span className="font-bold text-slate-800">{requestedTenor} Bulan</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
-                      <span className="text-slate-500">Biaya Administrasi</span>
-                      <span className="font-bold text-slate-800">Rp 0</span>
-                    </div>
-
-                    <div className="border-t border-slate-100 pt-4 text-center">
-                      <p className="text-xs text-slate-400 font-medium">Cicilan Bulanan Mulai Dari</p>
-                      <p className="text-3xl font-black text-[#1e3a8a] mt-1.5 tracking-tight">
-                        {formatRupiah(monthlyInstallment).replace("Rp ", "Rp.")}
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-1 text-xs font-black tracking-wide text-white backdrop-blur-md">
+                  <Sparkles className="h-3.5 w-3.5 text-teal-300" />
+                  <span>KreditPay Pinjaman</span>
+                </div>
               </div>
 
-              {/* Subtext */}
-              <p className="text-center text-xs font-semibold text-slate-500 pt-1">
-                Sesuaikan pinjaman dengan kebutuhanmu
-              </p>
+              <div className="mt-5 space-y-1.5">
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                  Simulasi Pinjaman
+                </h1>
+                <p className="text-xs sm:text-sm font-medium text-white/80 leading-relaxed max-w-sm">
+                  Geser tombol di bawah untuk menentukan jumlah pinjaman dan jangka waktu tenor.
+                </p>
+              </div>
 
-              {/* Tombol Lanjut (Warna Mustard/Gold Sesuai Screenshot) */}
-              <button
-                type="button"
-                onClick={() => setStage("lengkapi_data")}
-                className="w-full rounded-2xl bg-[#a07421] hover:bg-[#8e651a] py-4 text-base font-black text-white shadow-lg shadow-amber-900/20 transition active:scale-[0.98]"
-              >
-                Yuk, Lanjut
-              </button>
+              {/* Mini Badge Info di Banner */}
+              <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold text-white/90">
+                <span className="flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 backdrop-blur-xs">
+                  <Zap className="h-3.5 w-3.5 text-amber-300" /> Pencairan Kilat
+                </span>
+                <span className="flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 backdrop-blur-xs">
+                  <ShieldCheck className="h-3.5 w-3.5 text-teal-300" /> Bunga 0.16% / bln
+                </span>
+                <span className="flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 backdrop-blur-xs">
+                  <Check className="h-3.5 w-3.5 text-emerald-300" /> Tanpa Agunan
+                </span>
+              </div>
+            </div>
+          </header>
 
-              {/* Subtext di Bawah Tombol */}
-              <p className="text-center text-xs font-medium text-slate-500 -mt-2">
-                Cek Sekarang bunga Rendah loh!!
-              </p>
+          {/* Floating Card: Model Slider Interaktif (Sesuai Referensi Pengguna) */}
+          <div className="relative z-10 -mt-12 mx-4 sm:mx-6 space-y-5">
+            <div className="rounded-3xl bg-white p-5 sm:p-6 shadow-xl shadow-slate-200/80 border border-slate-100 space-y-6">
+              
+              {/* SLIDER 1: JUMLAH PINJAMAN */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                    JUMLAH PINJAMAN
+                  </span>
+                  <span className="rounded-xl bg-primary-700 px-3.5 py-1 text-xs sm:text-sm font-black text-white shadow-xs">
+                    {formatRupiah(requestedAmount)}
+                  </span>
+                </div>
 
-              {/* Keterangan Persyaratan Minimum Link */}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setOpenSyaratModal(true)}
-                className="flex items-center justify-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-800 cursor-pointer pt-2 select-none"
-              >
-                <span>Keterangan Persyaratan Minimum</span>
-                <Info className="h-4 w-4 text-slate-600" />
-                <span className="h-1.5 w-1.5 rounded-full bg-slate-600" />
+                {/* Track Slider Pinjaman */}
+                <div className="relative pt-2">
+                  <input
+                    type="range"
+                    min={5000000}
+                    max={500000000}
+                    step={5000000}
+                    value={requestedAmount}
+                    onChange={(e) => setRequestedAmount(Number(e.target.value))}
+                    style={{
+                      background: `linear-gradient(to right, #4338CA ${Math.max(0, Math.min(100, ((requestedAmount - 5000000) / (500000000 - 5000000)) * 100))}%, #E2E8F0 ${Math.max(0, Math.min(100, ((requestedAmount - 5000000) / (500000000 - 5000000)) * 100))}%)`
+                    }}
+                    className="h-2.5 w-full cursor-pointer appearance-none rounded-full accent-primary-700 outline-none transition"
+                  />
+                  <div className="mt-2 flex justify-between text-xs font-bold text-slate-400">
+                    <span>Rp 5 Juta</span>
+                    <span>Rp 500 Juta</span>
+                  </div>
+                </div>
+
+                {/* Quick Preset Buttons */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {[20000000, 50000000, 100000000, 250000000, 500000000].map((amt) => {
+                    const isSelected = requestedAmount === amt;
+                    return (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setRequestedAmount(amt)}
+                        className={`rounded-full px-3 py-1 text-xs font-black transition active:scale-95 ${
+                          isSelected
+                            ? "bg-primary-700 text-white shadow-xs"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        {amt >= 1000000000 ? `${amt / 1000000000} Milyar` : `${amt / 1000000} Jt`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* SLIDER 2: TENOR */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                    TENOR
+                  </span>
+                  <span className="rounded-xl bg-blue-600 px-3.5 py-1 text-xs sm:text-sm font-black text-white shadow-xs">
+                    {requestedTenor} Bulan
+                  </span>
+                </div>
+
+                {/* Track Slider Tenor */}
+                <div className="relative pt-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={TENOR_VALUES.length - 1}
+                    step={1}
+                    value={TENOR_VALUES.indexOf(requestedTenor) >= 0 ? TENOR_VALUES.indexOf(requestedTenor) : 0}
+                    onChange={(e) => setRequestedTenor(TENOR_VALUES[Number(e.target.value)])}
+                    style={{
+                      background: `linear-gradient(to right, #2563EB ${Math.max(0, Math.min(100, (Math.max(0, TENOR_VALUES.indexOf(requestedTenor)) / (TENOR_VALUES.length - 1)) * 100))}%, #E2E8F0 ${Math.max(0, Math.min(100, (Math.max(0, TENOR_VALUES.indexOf(requestedTenor)) / (TENOR_VALUES.length - 1)) * 100))}%)`
+                    }}
+                    className="h-2.5 w-full cursor-pointer appearance-none rounded-full accent-blue-600 outline-none transition"
+                  />
+                  <div className="mt-2 flex justify-between text-xs font-bold text-slate-400">
+                    <span>12 Bulan</span>
+                    <span>60 Bulan</span>
+                  </div>
+                </div>
+
+                {/* Tenor Preset Buttons */}
+                <div className="grid grid-cols-5 gap-1.5 pt-1">
+                  {TENOR_VALUES.map((t) => {
+                    const isSelected = requestedTenor === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setRequestedTenor(t)}
+                        className={`rounded-xl py-1.5 text-center text-xs font-black transition active:scale-95 ${
+                          isSelected
+                            ? "bg-blue-50 text-blue-700 ring-2 ring-blue-600"
+                            : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                        }`}
+                      >
+                        {t} Bln
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* DIVIDER IKON KALKULATOR (Sesuai Referensi Gambar) */}
+              <div className="relative my-4 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200" />
+                </div>
+                <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-xs text-slate-400">
+                  <Calculator className="h-5 w-5 text-primary-600" />
+                </div>
+              </div>
+
+              {/* TABEL RINCIAN HASIL SIMULASI (Sesuai Screenshot Referensi) */}
+              <div className="divide-y divide-slate-100 text-sm font-semibold">
+                <div className="flex items-center justify-between py-3.5">
+                  <span className="text-slate-600">Tanggal Jatuh Tempo</span>
+                  <span className="font-extrabold text-blue-700 text-base">
+                    {getDueDate(requestedTenor)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between py-3.5">
+                  <span className="text-slate-600">Pembayaran Per Bulan</span>
+                  <span className="font-black text-blue-700 text-xl">
+                    {formatRupiah(monthlyInstallment)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between py-3.5">
+                  <span className="text-slate-600">Bunga</span>
+                  <span className="font-extrabold text-blue-700 text-base">
+                    {formatRupiah(totalInterest)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between py-3.5">
+                  <span className="text-slate-600">Jumlah Pembayaran</span>
+                  <span className="font-black text-blue-700 text-xl">
+                    {formatRupiah(totalPayment)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tombol Lanjut & Ketentuan */}
+              <div className="space-y-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setStage("lengkapi_data")}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary-700 via-primary-600 to-indigo-600 hover:from-primary-800 hover:to-indigo-700 py-4 text-base font-black text-white shadow-xl shadow-primary-700/30 transition hover:shadow-2xl active:scale-[0.98]"
+                >
+                  <span>Lanjut Lengkapi Berkas</span>
+                  <ArrowRight className="h-5 w-5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOpenSyaratModal(true)}
+                  className="flex w-full items-center justify-center gap-1.5 py-2 text-xs font-bold text-slate-500 hover:text-primary-700 transition"
+                >
+                  <Info className="h-4 w-4" />
+                  <span>Keterangan Persyaratan & Ketentuan Pinjaman</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1283,7 +1391,7 @@ export default function PayLaterApplication() {
                     <h4 className="text-sm font-black text-slate-900">Proses Pencairan</h4>
                     <p className="text-xs font-semibold text-slate-400 mt-0.5">
                       {application?.status === "approved"
-                        ? "PayLater Aktif (Limit Rp 50.000.000)"
+                        ? `Pinjaman Aktif (Limit ${formatRupiah(application?.requested_amount || 500000000)})`
                         : application?.status === "pending"
                         ? "Sedang diverifikasi tim analis (1x24 jam)"
                         : "Menunggu persetujuan admin"}
@@ -2144,11 +2252,11 @@ export default function PayLaterApplication() {
       <Modal
         open={openSyaratModal}
         onClose={() => setOpenSyaratModal(false)}
-        title="Persyaratan Minimum PayLater"
+        title="Persyaratan Minimum Pinjaman"
       >
         <div className="space-y-4 text-xs font-medium text-slate-600">
           <p className="text-sm font-bold text-slate-800">
-            Berikut adalah ketentuan dan kualifikasi minimum pengajuan PayLater KreditPay:
+            Berikut adalah ketentuan dan kualifikasi minimum pengajuan Pinjaman KreditPay:
           </p>
           <ul className="space-y-2 list-disc pl-4 text-slate-700">
             <li>Warga Negara Indonesia (WNI) berusia minimal 21 tahun dan maksimal 60 tahun saat pelunasan.</li>

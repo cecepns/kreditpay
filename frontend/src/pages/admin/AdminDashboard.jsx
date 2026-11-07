@@ -79,7 +79,7 @@ export default function AdminDashboard() {
             <span className="grid h-14 w-14 place-items-center rounded-2xl bg-orange-50 text-orange-600 transition group-hover:scale-110">
               <FileText className="h-7 w-7" />
             </span>
-            <p className="mt-3 text-xs font-extrabold text-slate-800">Pengajuan PayLater</p>
+            <p className="mt-3 text-xs font-extrabold text-slate-800">Pengajuan Pinjaman</p>
           </Link>
         </div>
       </section>

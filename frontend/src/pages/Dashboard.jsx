@@ -57,7 +57,7 @@ export default function Dashboard() {
     if (actionType === "integrasi") {
       toast.success("Permintaan integrasi Autodebet telah dikirim ke Admin!");
     } else if (actionType === "cairkan") {
-      navigate("/app/paylater");
+      setTopUpOpen(true);
     }
   };
 

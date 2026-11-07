@@ -9,6 +9,11 @@ export default function BalanceCard({ summary, loading, userLevel, onTopUp, onTr
   const pl = summary?.paylater;
   const pct = pl && pl.limit > 0 ? Math.max(0, Math.min(100, (pl.available / pl.limit) * 100)) : 0;
   const isPaylaterApproved = (pl && Number(pl.limit) > 0) || Number(userLevel ?? 1) >= 2;
+  const isVerified =
+    Number(userLevel ?? 1) >= 2 ||
+    Number(summary?.level ?? 1) >= 2 ||
+    (pl && Number(pl.limit) > 0) ||
+    Number(summary?.balance ?? 0) > 0;
 
   return (
     <section className="relative overflow-hidden rounded-3xl bg-white p-6 shadow-xl shadow-slate-200/70">
@@ -18,7 +23,7 @@ export default function BalanceCard({ summary, loading, userLevel, onTopUp, onTr
           <div className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-slate-400">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary-700 text-white"><Wallet className="h-5 w-5" /></span>Saldo Utama
           </div>
-          {Number(userLevel ?? 1) >= 2 && <VerifiedBadge size="md" />}
+          {isVerified && <VerifiedBadge size="md" />}
         </div>
         {loading ? <Skeleton className="mt-3 h-10 w-56" /> : <p className="mt-2 text-3xl font-extrabold text-slate-800">{formatRupiah(summary?.balance)}</p>}
         <div className="mt-4 flex gap-3">
@@ -32,14 +37,14 @@ export default function BalanceCard({ summary, loading, userLevel, onTopUp, onTr
       <div className="relative">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-slate-400">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-500 text-white"><Zap className="h-5 w-5" fill="currentColor" /></span>Saldo PayLater
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-500 text-white"><Zap className="h-5 w-5" fill="currentColor" /></span>Saldo Pinjaman
           </div>
           {isPaylaterApproved ? (
             <button
               type="button"
               disabled
               className="rounded-full bg-slate-200 px-4 py-1.5 text-xs font-extrabold uppercase text-slate-400 cursor-not-allowed select-none"
-              title="PayLater Anda sudah disetujui & aktif"
+              title="Pinjaman Anda sudah disetujui & aktif"
             >
               Ajukan
             </button>

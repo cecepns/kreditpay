@@ -17,7 +17,7 @@ import { get, upload, post } from "@/utils/request";
 import { formatTime, fileUrl } from "@/utils/format";
 
 const QUICK_SUGGESTIONS = [
-  "Halo Admin, bagaimana cara aktivasi PayLater?",
+  "Halo Admin, bagaimana cara aktivasi Pinjaman?",
   "Berapa lama proses verifikasi dokumen?",
   "Bagaimana cara menaikkan limit kredit saya?",
   "Saya butuh bantuan kendala transaksi.",
@@ -327,7 +327,7 @@ export default function HelpButton() {
                   <span>Halo, {user?.name || "Kak"}!</span>
                 </div>
                 <p className="text-slate-600 leading-relaxed font-medium">
-                  Selamat datang di Layanan Pelanggan resmi <b>KreditPay</b>. Sampaikan pertanyaan seputar pengajuan PayLater, aktivasi limit, atau transaksi Anda.
+                  Selamat datang di Layanan Pelanggan resmi <b>KreditPay</b>. Sampaikan pertanyaan seputar pengajuan Pinjaman, aktivasi limit, atau transaksi Anda.
                 </p>
               </div>
 

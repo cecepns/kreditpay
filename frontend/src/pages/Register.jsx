@@ -54,7 +54,7 @@ export default function Register() {
     <div className="min-h-screen bg-slate-100">
       <form onSubmit={submit} noValidate className="mx-auto min-h-screen max-w-md bg-white px-6 py-10 shadow-xl">
         <h1 className="text-3xl font-extrabold text-slate-900">Buat Akun 🚀</h1>
-        <p className="mb-8 mt-1 font-semibold text-slate-500">Daftar gratis, langsung dapat limit PayLater.</p>
+        <p className="mb-8 mt-1 font-semibold text-slate-500">Daftar gratis, langsung dapat limit Pinjaman.</p>
         <div className="space-y-4">
           {FIELDS.map((f) => <Input key={f.name} {...f} value={form[f.name]} error={errors[f.name]} onChange={change(f)} />)}
         </div>
