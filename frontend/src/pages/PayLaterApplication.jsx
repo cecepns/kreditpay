@@ -56,13 +56,11 @@ const LOAN_AMOUNT_OPTIONS = [
 ];
 
 const TENOR_OPTIONS = [
-  { value: 3, label: "3 Bulan" },
-  { value: 6, label: "6 Bulan" },
-  { value: 9, label: "9 Bulan" },
   { value: 12, label: "12 Bulan" },
-  { value: 18, label: "18 Bulan" },
   { value: 24, label: "24 Bulan" },
   { value: 36, label: "36 Bulan" },
+  { value: 48, label: "48 Bulan" },
+  { value: 60, label: "60 Bulan" },
 ];
 
 export default function PayLaterApplication() {
