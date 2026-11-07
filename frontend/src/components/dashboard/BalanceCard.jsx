@@ -39,17 +39,17 @@ export default function BalanceCard({ summary, loading, userLevel, onTopUp, onTr
           {isPaylaterApproved ? (
             <button
               type="button"
-              disabled
-              className="rounded-full bg-slate-200 px-4 py-1.5 text-xs font-extrabold uppercase text-slate-400 cursor-not-allowed select-none"
-              title="Pinjaman Anda sudah disetujui & aktif"
+              onClick={onApplyPaylater}
+              className="rounded-full bg-primary-700 px-4 py-1.5 text-xs font-extrabold uppercase text-white hover:bg-primary-800 transition active:scale-95 shadow-sm"
+              title="Lihat riwayat pengajuan & surat persetujuan pinjaman"
             >
-              Ajukan
+              Riwayat
             </button>
           ) : (
             <button
               type="button"
               onClick={onApplyPaylater || (() => toast("Pengajuan limit segera hadir", { icon: "ℹ️" }))}
-              className="rounded-full bg-primary-700 px-4 py-1.5 text-xs font-extrabold uppercase text-white hover:bg-primary-800 transition active:scale-95"
+              className="rounded-full bg-primary-700 px-4 py-1.5 text-xs font-extrabold uppercase text-white hover:bg-primary-800 transition active:scale-95 shadow-sm"
             >
               Ajukan
             </button>

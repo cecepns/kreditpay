@@ -150,7 +150,7 @@ const uploadDocs = multer({
     destination: UPLOAD_DIR,
     filename: (req, file, cb) => cb(null, `doc-${req.user.id}-${file.fieldname}-${Date.now()}${MIME_EXT[file.mimetype]}`),
   }),
-  limits: { fileSize: 4 * 1024 * 1024 },
+  limits: { fileSize: 15 * 1024 * 1024, fieldSize: 15 * 1024 * 1024 },
   fileFilter: (req, file, cb) => (MIME_EXT[file.mimetype] ? cb(null, true) : cb(new Error("INVALID_FILE"))),
 });
 
@@ -372,7 +372,31 @@ app.get("/api/paylater/status", userOnly, wrap(async (req, res) => {
     "SELECT * FROM paylater_applications WHERE user_id=? ORDER BY id DESC LIMIT 1",
     [req.user.id]
   );
-  ok(res, appRow || null);
+  const [settingsRows] = await db.query(
+    "SELECT setting_key, setting_value FROM app_settings WHERE setting_key LIKE 'letter_%' OR setting_key = 'app_name'"
+  );
+  const letter_template = settingsRows.reduce((acc, r) => {
+    acc[r.setting_key] = r.setting_value;
+    return acc;
+  }, {});
+
+  const [[userRow]] = await db.query(
+    "SELECT id, name, username, level FROM users WHERE id=?",
+    [req.user.id]
+  );
+
+  if (appRow) {
+    ok(res, {
+      ...appRow,
+      user_info: userRow || null,
+      letter_template,
+    });
+  } else {
+    ok(res, {
+      user_info: userRow || null,
+      letter_template,
+    });
+  }
 }));
 
 app.post(
@@ -1003,11 +1027,20 @@ app.put("/api/admin/settings", adminOnly, wrap(async (req, res) => {
     "cs_email",
     "cs_operational_hours",
     "notif_acc_title",
-    "notif_acc_message"
+    "notif_acc_message",
+    "letter_company_name",
+    "letter_title",
+    "letter_number_prefix",
+    "letter_opening",
+    "letter_rules_min_topup",
+    "letter_rules_content",
+    "letter_closing",
+    "letter_signer",
+    "letter_important_notes",
   ];
   for (const key of allowed) {
     if (body[key] !== undefined) {
-      const val = clean(String(body[key]), 3000);
+      const val = clean(String(body[key]), 6000);
       await db.query(
         "INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
         [key, val]
@@ -1854,25 +1887,30 @@ async function initDb() {
     `);
 
     const [[{ count: settingsCount }]] = await db.query("SELECT COUNT(*) AS count FROM app_settings");
-    if (settingsCount === 0) {
-      await db.query(`
-        INSERT INTO app_settings (setting_key, setting_value, description) VALUES
-        ('whatsapp_number', '081200000000', 'Nomor WhatsApp Layanan Bantuan / CS'),
-        ('whatsapp_message', 'Halo Admin KreditPay, saya butuh bantuan terkait akun saya.', 'Pesan template awal saat user menghubungi CS via WhatsApp'),
-        ('app_name', 'KreditPay', 'Nama Aplikasi'),
-        ('cs_email', 'support@kreditpay.com', 'Email Dukungan Pelanggan'),
-        ('cs_operational_hours', 'Senin - Minggu: 08:00 - 22:00 WIB', 'Jam Operasional CS'),
-        ('notif_acc_title', 'Pengajuan Pinjaman Disetujui (ACC)', 'Judul notifikasi saat pinjaman nasabah disetujui'),
-        ('notif_acc_message', 'Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.', 'Pesan notifikasi saat pinjaman disetujui')
-      `);
-      console.log("Seeded initial app settings");
-    } else {
-      // Pastikan key template notifikasi ada jika DB sudah terisi sebelumnya
-      await db.query(`
-        INSERT IGNORE INTO app_settings (setting_key, setting_value, description) VALUES
-        ('notif_acc_title', 'Pengajuan Pinjaman Disetujui (ACC)', 'Judul notifikasi saat pinjaman nasabah disetujui'),
-        ('notif_acc_message', 'Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.', 'Pesan notifikasi saat pinjaman disetujui')
-      `);
+    const defaultSettings = [
+      ['whatsapp_number', '081200000000', 'Nomor WhatsApp Layanan Bantuan / CS'],
+      ['whatsapp_message', 'Halo Admin KreditPay, saya butuh bantuan terkait akun saya.', 'Pesan template awal saat user menghubungi CS via WhatsApp'],
+      ['app_name', 'KreditPay', 'Nama Aplikasi'],
+      ['cs_email', 'support@kreditpay.com', 'Email Dukungan Pelanggan'],
+      ['cs_operational_hours', 'Senin - Minggu: 08:00 - 22:00 WIB', 'Jam Operasional CS'],
+      ['notif_acc_title', 'Pengajuan Pinjaman Disetujui (ACC)', 'Judul notifikasi saat pinjaman nasabah disetujui'],
+      ['notif_acc_message', 'Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.', 'Pesan notifikasi saat pinjaman disetujui'],
+      ['letter_company_name', 'PT KREDITPAY INDONESIA', 'Nama Perusahaan pada Surat Persetujuan'],
+      ['letter_title', 'SURAT PEMBERITAHUAN\nPERSETUJUAN PENGAJUAN PINJAMAN', 'Judul Surat Persetujuan'],
+      ['letter_number_prefix', 'KP/APP', 'Awalan / Prefix Nomor Surat Resmi'],
+      ['letter_opening', 'Berdasarkan hasil proses evaluasi dan verifikasi terhadap pengajuan pinjaman yang Anda ajukan melalui {company_name}, dengan ini kami memberitahukan bahwa pengajuan pinjaman Anda telah DISETUJUI, dengan rincian sebagai berikut:', 'Paragraf Pembuka Surat Persetujuan'],
+      ['letter_rules_min_topup', 'Rp 1.000.000 (satu juta rupiah)', 'Nominal Minimal Top-up Syarat Pencairan'],
+      ['letter_rules_content', '- Silakan refresh saldo PayLater Anda\n- Tanda akun Anda aktif yaitu adanya logo "Verifikasi" pada akun Anda.\n- Jika ingin melakukan pencairan saldo PayLater.\n- Nasabah diwajibkan isi saldo ke aplikasi agar fitur menu transfer dan menu-menu lainnya dapat diakses minimal:\n[TOPUP_HIGHLIGHT]\n- Dana top-up nasabah dikirim ke rekening perusahaan sesuai dengan nomor ID akun pemohon.\n- Top-up atau isi saldo ini digunakan untuk membuka dan mengakses menu serta fitur yang ada dalam aplikasi kami.\n- Top-up atau isi saldo ini akan dicairkan bersamaan dengan pencairan PayLater Anda nantinya. "Hanya bersifat sementara". Top-up ini hanya untuk membuka fitur "Transfer" agar limit PayLater Anda bisa dicairkan ke rekening melalui menu transfer.', 'Daftar Aturan Pencairan Limit Pinjaman'],
+      ['letter_closing', 'Demikian surat pemberitahuan ini kami sampaikan. Terima kasih atas kepercayaan Anda kepada {company_name}.', 'Paragraf Penutup Surat Persetujuan'],
+      ['letter_signer', 'Tim Operasional', 'Pihak Penandatangan Surat Resmi'],
+      ['letter_important_notes', 'Jaga kerahasiaan akun dan data pribadi Anda. {company_name} tidak meminta PIN, OTP, atau Password kepada siapapun melalui media lainnya.', 'Catatan Informasi Penting Kaki Surat'],
+    ];
+
+    for (const [key, val, desc] of defaultSettings) {
+      await db.query(
+        "INSERT IGNORE INTO app_settings (setting_key, setting_value, description) VALUES (?, ?, ?)",
+        [key, val, desc]
+      );
     }
 
     /* ── Live Chat Messages Table ── */

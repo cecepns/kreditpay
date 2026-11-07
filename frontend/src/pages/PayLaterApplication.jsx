@@ -44,6 +44,7 @@ import {
   getDistricts,
   getVillages,
 } from "@/utils/wilayah";
+import { compressImage } from "@/utils/imageCompressor";
 
 const LOAN_AMOUNT_OPTIONS = [
   5000000,
@@ -72,9 +73,80 @@ const TENOR_VALUES = [12, 24, 36, 48, 60];
 
 export default function PayLaterApplication() {
   const navigate = useNavigate();
-  const [stage, setStage] = useState("aktivasi"); // "aktivasi" | "simulasi" | "lengkapi_data" | "data_nasabah" | "data_tambahan"
+  const [stage, setStage] = useState("aktivasi"); // "riwayat" | "aktivasi" | "simulasi" | "lengkapi_data" | "data_nasabah" | "data_tambahan"
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [application, setApplication] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
+  const [openSuratModal, setOpenSuratModal] = useState(false);
+
+  // Template Surat Resmi Persetujuan Pinjaman (Dapat diedit oleh Admin di Pengaturan)
+  const [letterTemplate, setLetterTemplate] = useState({
+    letter_company_name: "PT KREDITPAY INDONESIA",
+    letter_title: "SURAT PEMBERITAHUAN\nPERSETUJUAN PENGAJUAN PINJAMAN",
+    letter_number_prefix: "KP/APP",
+    letter_opening:
+      "Berdasarkan hasil proses evaluasi dan verifikasi terhadap pengajuan pinjaman yang Anda ajukan melalui {company_name}, dengan ini kami memberitahukan bahwa pengajuan pinjaman Anda telah DISETUJUI, dengan rincian sebagai berikut:",
+    letter_rules_min_topup: "Rp 1.000.000 (satu juta rupiah)",
+    letter_rules_content: `- Silakan refresh saldo PayLater Anda\n- Tanda akun Anda aktif yaitu adanya logo "Verifikasi" pada akun Anda.\n- Jika ingin melakukan pencairan saldo PayLater.\n- Nasabah diwajibkan isi saldo ke aplikasi agar fitur menu transfer dan menu-menu lainnya dapat diakses minimal:\n[TOPUP_HIGHLIGHT]\n- Dana top-up nasabah dikirim ke rekening perusahaan sesuai dengan nomor ID akun pemohon.\n- Top-up atau isi saldo ini digunakan untuk membuka dan mengakses menu serta fitur yang ada dalam aplikasi kami.\n- Top-up atau isi saldo ini akan dicairkan bersamaan dengan pencairan PayLater Anda nantinya. "Hanya bersifat sementara". Top-up ini hanya untuk membuka fitur "Transfer" agar limit PayLater Anda bisa dicairkan ke rekening melalui menu transfer.`,
+    letter_closing:
+      "Demikian surat pemberitahuan ini kami sampaikan. Terima kasih atas kepercayaan Anda kepada {company_name}.",
+    letter_signer: "Tim Operasional",
+    letter_important_notes:
+      "Jaga kerahasiaan akun dan data pribadi Anda. {company_name} tidak meminta PIN, OTP, atau password kepada siapapun melalui media lainnya.",
+  });
+
+  const formatLetterNumber = (appId, dateStr, prefix = "KP/APP") => {
+    const d = dateStr ? new Date(dateStr) : new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const paddedId = String(appId || 1).padStart(6, "0");
+    return `${prefix || "KP/APP"}/${mm}${yyyy}/${paddedId}`;
+  };
+
+  const formatApplicationCode = (appId, dateStr) => {
+    const d = dateStr ? new Date(dateStr) : new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const paddedId = String(appId || 1).padStart(6, "0");
+    return `PINJ-${yyyy}${mm}-${paddedId}`;
+  };
+
+  const formatFormalDate = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const formatFormalDateTime = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const datePart = d.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    return `${datePart}, ${hours}:${minutes} WIB`;
+  };
+
+  const formatDiajukanDate = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    return `${day}-${month}-${year} ${hours}:${minutes}`;
+  };
 
   // Simulasi Pinjaman states (Model Slider Interaktif)
   const [requestedAmount, setRequestedAmount] = useState(300000000);
@@ -230,52 +302,62 @@ export default function PayLaterApplication() {
       .finally(() => setLoadingProvinces(false));
   }, []);
 
-  // Ambil status pengajuan yang sudah ada
+  // Ambil status pengajuan yang sudah ada & template surat
   useEffect(() => {
     get(API_ENDPOINTS.PAYLATER.STATUS)
       .then((res) => {
         if (res.data) {
-          setApplication(res.data);
-          if (res.data.requested_amount) setRequestedAmount(Number(res.data.requested_amount));
-          if (res.data.requested_tenor) setRequestedTenor(Number(res.data.requested_tenor));
-          setNasabahComplete(true);
-          setPekerjaanComplete(true);
-          setTambahanComplete(!!res.data.kk_image);
-          if (res.data.ktp_image) setKtpPreview(res.data.ktp_image);
-          if (res.data.ktp_back_image) setKtpBackPreview(res.data.ktp_back_image);
-          if (res.data.selfie_image) setSelfiePreview(res.data.selfie_image);
-          if (res.data.kk_image) setKkPreview(res.data.kk_image);
-          if (res.data.slip_gaji_image) setSlipGajiPreview(res.data.slip_gaji_image);
-          if (res.data.npwp_image) setNpwpPreview(res.data.npwp_image);
-          if (res.data.bpjs_image) setBpjsPreview(res.data.bpjs_image);
-          if (res.data.ijazah_image) setIjazahPreview(res.data.ijazah_image);
-          if (res.data.passport_image) setPassportPreview(res.data.passport_image);
-          setFormData((f) => ({
-            ...f,
-            fullName: res.data.full_name || "",
-            nik: res.data.nik || "",
-            birth_place: res.data.birth_place || "",
-            birth_date: res.data.birth_date || "",
-            mother_name: res.data.mother_name || "",
-            ktp_address: res.data.ktp_address || "",
-            ktp_province: res.data.ktp_province || "",
-            ktp_city: res.data.ktp_city || "",
-            ktp_district: res.data.ktp_district || "",
-            ktp_village: res.data.ktp_village || "",
-            domicile_address: res.data.domicile_address || "",
-            domicile_province: res.data.domicile_province || "",
-            domicile_city: res.data.domicile_city || "",
-            domicile_district: res.data.domicile_district || "",
-            domicile_village: res.data.domicile_village || "",
-            residence_years: res.data.residence_years || "",
-            emergency_name: res.data.emergency_name || "",
-            emergency_relation: res.data.emergency_relation || "ORANG TUA",
-            emergency_phone: res.data.emergency_phone || "",
-            emergency_address: res.data.emergency_address || "",
-            job_type: res.data.job_type || "Karyawan Swasta",
-            company_name: res.data.company_name || "",
-            monthly_income: String(res.data.monthly_income || "8000000"),
-          }));
+          const appData = res.data.id ? res.data : res.data.application || null;
+          if (res.data.letter_template) {
+            setLetterTemplate((prev) => ({ ...prev, ...res.data.letter_template }));
+          }
+          if (res.data.user_info) {
+            setUserInfo(res.data.user_info);
+          }
+          if (appData && appData.id) {
+            setApplication(appData);
+            setStage("riwayat"); // Otomatis tampilkan Riwayat Pinjaman jika sudah pernah mengajukan
+            if (appData.requested_amount) setRequestedAmount(Number(appData.requested_amount));
+            if (appData.requested_tenor) setRequestedTenor(Number(appData.requested_tenor));
+            setNasabahComplete(true);
+            setPekerjaanComplete(true);
+            setTambahanComplete(!!appData.kk_image);
+            if (appData.ktp_image) setKtpPreview(appData.ktp_image);
+            if (appData.ktp_back_image) setKtpBackPreview(appData.ktp_back_image);
+            if (appData.selfie_image) setSelfiePreview(appData.selfie_image);
+            if (appData.kk_image) setKkPreview(appData.kk_image);
+            if (appData.slip_gaji_image) setSlipGajiPreview(appData.slip_gaji_image);
+            if (appData.npwp_image) setNpwpPreview(appData.npwp_image);
+            if (appData.bpjs_image) setBpjsPreview(appData.bpjs_image);
+            if (appData.ijazah_image) setIjazahPreview(appData.ijazah_image);
+            if (appData.passport_image) setPassportPreview(appData.passport_image);
+            setFormData((f) => ({
+              ...f,
+              fullName: appData.full_name || "",
+              nik: appData.nik || "",
+              birth_place: appData.birth_place || "",
+              birth_date: appData.birth_date || "",
+              mother_name: appData.mother_name || "",
+              ktp_address: appData.ktp_address || "",
+              ktp_province: appData.ktp_province || "",
+              ktp_city: appData.ktp_city || "",
+              ktp_district: appData.ktp_district || "",
+              ktp_village: appData.ktp_village || "",
+              domicile_address: appData.domicile_address || "",
+              domicile_province: appData.domicile_province || "",
+              domicile_city: appData.domicile_city || "",
+              domicile_district: appData.domicile_district || "",
+              domicile_village: appData.domicile_village || "",
+              residence_years: appData.residence_years || "",
+              emergency_name: appData.emergency_name || "",
+              emergency_relation: appData.emergency_relation || "ORANG TUA",
+              emergency_phone: appData.emergency_phone || "",
+              emergency_address: appData.emergency_address || "",
+              job_type: appData.job_type || "Karyawan Swasta",
+              company_name: appData.company_name || "",
+              monthly_income: String(appData.monthly_income || "8000000"),
+            }));
+          }
         }
       })
       .catch(() => {})
@@ -377,60 +459,85 @@ export default function PayLaterApplication() {
   };
 
   // Helper upload file dokumen pendukung (Data Tambahan)
-  const handleDocFileChange = (e, setFile, setPreview, label) => {
+  const handleDocFileChange = async (e, setFile, setPreview, label) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       return toast.error("Format foto harus JPG, PNG, atau WEBP");
     }
-    if (file.size > 4 * 1024 * 1024) {
-      return toast.error("Ukuran maksimal 4MB");
+    if (file.size > 25 * 1024 * 1024) {
+      return toast.error("Ukuran maksimal 25MB");
     }
-    setFile(file);
-    setPreview(URL.createObjectURL(file));
-    toast.success(`${label} berhasil dipilih`);
+    try {
+      const compressed = await compressImage(file);
+      setFile(compressed);
+      setPreview(URL.createObjectURL(compressed));
+      toast.success(`${label} berhasil dipilih`);
+    } catch {
+      setFile(file);
+      setPreview(URL.createObjectURL(file));
+      toast.success(`${label} berhasil dipilih`);
+    }
   };
 
   // Handler file KTP Depan
-  const handleKtpChange = (e) => {
+  const handleKtpChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       return toast.error("Format foto harus JPG, PNG, atau WEBP");
     }
-    if (file.size > 4 * 1024 * 1024) {
-      return toast.error("Ukuran maksimal 4MB");
+    if (file.size > 25 * 1024 * 1024) {
+      return toast.error("Ukuran maksimal 25MB");
     }
-    setKtpFile(file);
-    setKtpPreview(URL.createObjectURL(file));
+    try {
+      const compressed = await compressImage(file);
+      setKtpFile(compressed);
+      setKtpPreview(URL.createObjectURL(compressed));
+    } catch {
+      setKtpFile(file);
+      setKtpPreview(URL.createObjectURL(file));
+    }
   };
 
   // Handler file KTP Belakang
-  const handleKtpBackChange = (e) => {
+  const handleKtpBackChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       return toast.error("Format foto harus JPG, PNG, atau WEBP");
     }
-    if (file.size > 4 * 1024 * 1024) {
-      return toast.error("Ukuran maksimal 4MB");
+    if (file.size > 25 * 1024 * 1024) {
+      return toast.error("Ukuran maksimal 25MB");
     }
-    setKtpBackFile(file);
-    setKtpBackPreview(URL.createObjectURL(file));
+    try {
+      const compressed = await compressImage(file);
+      setKtpBackFile(compressed);
+      setKtpBackPreview(URL.createObjectURL(compressed));
+    } catch {
+      setKtpBackFile(file);
+      setKtpBackPreview(URL.createObjectURL(file));
+    }
   };
 
   // Handler file Selfie
-  const handleSelfieChange = (e) => {
+  const handleSelfieChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       return toast.error("Format foto harus JPG, PNG, atau WEBP");
     }
-    if (file.size > 4 * 1024 * 1024) {
-      return toast.error("Ukuran maksimal 4MB");
+    if (file.size > 25 * 1024 * 1024) {
+      return toast.error("Ukuran maksimal 25MB");
     }
-    setSelfieFile(file);
-    setSelfiePreview(URL.createObjectURL(file));
+    try {
+      const compressed = await compressImage(file);
+      setSelfieFile(compressed);
+      setSelfiePreview(URL.createObjectURL(compressed));
+    } catch {
+      setSelfieFile(file);
+      setSelfiePreview(URL.createObjectURL(file));
+    }
   };
 
   // Handler Pemilihan Wilayah KTP (Open API wilayah.id)
@@ -727,55 +834,76 @@ export default function PayLaterApplication() {
     }
 
     setSubmitting(true);
-    const form = new FormData();
-    form.append("requested_amount", requestedAmount);
-    form.append("requested_tenor", requestedTenor);
-    form.append("monthly_installment", monthlyInstallment);
-    form.append("nik", formData.nik);
-    form.append("full_name", formData.fullName);
-    form.append("birth_place", formData.birth_place);
-    form.append("birth_date", formData.birth_date);
-    form.append("mother_name", formData.mother_name || "-");
-
-    form.append("ktp_address", formData.ktp_address);
-    form.append("ktp_province", formData.ktp_province);
-    form.append("ktp_city", formData.ktp_city);
-    form.append("ktp_district", formData.ktp_district);
-    form.append("ktp_village", formData.ktp_village);
-
-    form.append("domicile_address", formData.domicile_address);
-    form.append("domicile_province", formData.domicile_province);
-    form.append("domicile_city", formData.domicile_city);
-    form.append("domicile_district", formData.domicile_district);
-    form.append("domicile_village", formData.domicile_village);
-    form.append("residence_years", formData.residence_years);
-
-    form.append("emergency_name", formData.emergency_name);
-    form.append("emergency_relation", formData.emergency_relation);
-    form.append("emergency_phone", formData.emergency_phone);
-    form.append("emergency_address", formData.emergency_address);
-
-    form.append("job_type", formData.job_type);
-    form.append("company_name", formData.company_name);
-    form.append("monthly_income", formData.monthly_income);
-
-    if (ktpFile) form.append("ktp", ktpFile);
-    if (ktpBackFile) form.append("ktp_back", ktpBackFile);
-    if (selfieFile) form.append("selfie", selfieFile);
-
-    // Dokumen Pendukung (Data Tambahan)
-    if (kkFile) form.append("kk", kkFile);
-    if (slipGajiFile) form.append("slip_gaji", slipGajiFile);
-    if (npwpFile) form.append("npwp", npwpFile);
-    if (bpjsFile) form.append("bpjs", bpjsFile);
-    if (ijazahFile) form.append("ijazah", ijazahFile);
-    if (passportFile) form.append("passport", passportFile);
+    const toastId = toast.loading("Mengunggah data pengajuan...");
 
     try {
+      // Pastikan semua dokumen terkompresi sebelum dikirim ke server
+      const [
+        cKtp, cKtpBack, cSelfie,
+        cKk, cSlip, cNpwp, cBpjs, cIjazah, cPassport
+      ] = await Promise.all([
+        ktpFile ? compressImage(ktpFile) : null,
+        ktpBackFile ? compressImage(ktpBackFile) : null,
+        selfieFile ? compressImage(selfieFile) : null,
+        kkFile ? compressImage(kkFile) : null,
+        slipGajiFile ? compressImage(slipGajiFile) : null,
+        npwpFile ? compressImage(npwpFile) : null,
+        bpjsFile ? compressImage(bpjsFile) : null,
+        ijazahFile ? compressImage(ijazahFile) : null,
+        passportFile ? compressImage(passportFile) : null,
+      ]);
+
+      const form = new FormData();
+      form.append("requested_amount", requestedAmount);
+      form.append("requested_tenor", requestedTenor);
+      form.append("monthly_installment", monthlyInstallment);
+      form.append("nik", formData.nik);
+      form.append("full_name", formData.fullName);
+      form.append("birth_place", formData.birth_place);
+      form.append("birth_date", formData.birth_date);
+      form.append("mother_name", formData.mother_name || "-");
+
+      form.append("ktp_address", formData.ktp_address);
+      form.append("ktp_province", formData.ktp_province);
+      form.append("ktp_city", formData.ktp_city);
+      form.append("ktp_district", formData.ktp_district);
+      form.append("ktp_village", formData.ktp_village);
+
+      form.append("domicile_address", formData.domicile_address);
+      form.append("domicile_province", formData.domicile_province);
+      form.append("domicile_city", formData.domicile_city);
+      form.append("domicile_district", formData.domicile_district);
+      form.append("domicile_village", formData.domicile_village);
+      form.append("residence_years", formData.residence_years);
+
+      form.append("emergency_name", formData.emergency_name);
+      form.append("emergency_relation", formData.emergency_relation);
+      form.append("emergency_phone", formData.emergency_phone);
+      form.append("emergency_address", formData.emergency_address);
+
+      form.append("job_type", formData.job_type);
+      form.append("company_name", formData.company_name);
+      form.append("monthly_income", formData.monthly_income);
+
+      if (cKtp) form.append("ktp", cKtp);
+      if (cKtpBack) form.append("ktp_back", cKtpBack);
+      if (cSelfie) form.append("selfie", cSelfie);
+
+      // Dokumen Pendukung (Data Tambahan)
+      if (cKk) form.append("kk", cKk);
+      if (cSlip) form.append("slip_gaji", cSlip);
+      if (cNpwp) form.append("npwp", cNpwp);
+      if (cBpjs) form.append("bpjs", cBpjs);
+      if (cIjazah) form.append("ijazah", cIjazah);
+      if (cPassport) form.append("passport", cPassport);
+
       const res = await upload(API_ENDPOINTS.PAYLATER.APPLY, form);
+      toast.dismiss(toastId);
       toast.success(res.message || "Pengajuan Pinjaman berhasil dikirim!");
       setApplication(res.data);
+      setStage("riwayat");
     } catch (err) {
+      toast.dismiss(toastId);
       toast.error(err.message || "Gagal mengirim pengajuan");
     } finally {
       setSubmitting(false);
@@ -784,6 +912,148 @@ export default function PayLaterApplication() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* ── TAHAP 0: RIWAYAT PINJAMAN (SESUAI GAMBAR 1) ── */}
+      {stage === "riwayat" && (
+        <div className="flex flex-col min-h-screen bg-[#F43F5E]/5 pb-12">
+          {/* Header Merah dengan Tombol Kembali */}
+          <header className="bg-[#E11D48] px-5 pt-6 pb-10 text-white rounded-b-[2.5rem] shadow-md">
+            <div className="max-w-md mx-auto">
+              <button
+                type="button"
+                onClick={() => navigate("/app")}
+                className="inline-flex items-center gap-2 text-sm font-black text-white hover:text-white/80 transition active:scale-95"
+              >
+                <ArrowLeft className="h-5 w-5 stroke-[2.5]" />
+                <span>Kembali</span>
+              </button>
+            </div>
+          </header>
+
+          <main className="px-5 -mt-5 space-y-4 max-w-md mx-auto w-full">
+            {/* Kartu 1: Riwayat Pinjaman */}
+            <div className="rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-slate-100 space-y-3.5">
+              <div>
+                <h2 className="text-base font-black text-slate-900 tracking-tight">Riwayat Pinjaman</h2>
+                <p className="text-xs font-semibold text-slate-400">Pantau status pengajuan terbaru Anda</p>
+              </div>
+
+              <div className="rounded-2xl bg-[#F8FAFC] border border-slate-100 p-4 sm:p-5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-500">Nominal Pinjaman</span>
+                  {application?.status === "approved" ? (
+                    <span className="rounded-full bg-emerald-50 border border-emerald-200/80 px-3 py-0.5 text-xs font-black text-emerald-700 shadow-2xs">
+                      Diterima
+                    </span>
+                  ) : application?.status === "rejected" ? (
+                    <span className="rounded-full bg-rose-50 border border-rose-200/80 px-3 py-0.5 text-xs font-black text-rose-700 shadow-2xs">
+                      Ditolak
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-amber-50 border border-amber-200/80 px-3 py-0.5 text-xs font-black text-amber-800 shadow-2xs">
+                      Menunggu Verifikasi
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  {formatRupiah(application?.requested_amount || requestedAmount)}
+                </p>
+
+                <p className="text-xs font-semibold text-slate-400">
+                  Diajukan {formatDiajukanDate(application?.created_at) || "07-11-2026 19:40"}
+                </p>
+              </div>
+            </div>
+
+            {/* Kartu 2: Status Verifikasi & Buka Surat Persetujuan */}
+            <div className="rounded-3xl bg-white p-6 shadow-sm border border-slate-100 text-center space-y-4">
+              {application?.status === "approved" ? (
+                <>
+                  {/* Badge Bulat Oranye Centang VERIFIED (Sesuai Referensi Gambar 1) */}
+                  <div className="flex items-center justify-center pt-1">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/80 bg-gradient-to-r from-amber-50 via-white to-amber-50 px-3.5 py-1.5 shadow-xs">
+                      <div className="grid h-5 w-5 place-items-center rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 text-white shadow-xs">
+                        <Check className="h-3.5 w-3.5 stroke-[3]" />
+                      </div>
+                      <span className="text-xs font-black tracking-wider text-slate-900 uppercase">
+                        VERIFIED
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs sm:text-sm font-semibold text-slate-600 max-w-xs mx-auto leading-relaxed">
+                    Pinjaman Anda sudah diterima. Buka surat persetujuan untuk melihat rincian dan informasi pencairan.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => setOpenSuratModal(true)}
+                    className="w-full rounded-2xl bg-[#E11D48] py-4 text-sm font-black text-white shadow-lg shadow-rose-600/30 hover:bg-[#BE123C] transition active:scale-[0.99]"
+                  >
+                    Buka Surat Persetujuan
+                  </button>
+                </>
+              ) : application?.status === "rejected" ? (
+                <>
+                  <div className="flex items-center justify-center pt-1">
+                    <div className="grid h-12 w-12 place-items-center rounded-full bg-rose-50 text-rose-600">
+                      <X className="h-6 w-6 stroke-[2.5]" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-black text-slate-800">Pengajuan Belum Disetujui</h3>
+                    <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                      Mohon maaf, pengajuan pinjaman Anda belum dapat disetujui saat ini. Silakan periksa kembali data berkas atau hubungi tim bantuan kami.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStage("simulasi")}
+                    className="w-full rounded-2xl bg-slate-900 py-3.5 text-xs font-bold text-white hover:bg-slate-800 transition active:scale-[0.99]"
+                  >
+                    Ajukan Ulang Pinjaman
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-center pt-1">
+                    <div className="grid h-12 w-12 place-items-center rounded-full bg-amber-50 text-amber-600">
+                      <Clock className="h-6 w-6 animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-black text-slate-800">Sedang Diverifikasi Tim Analis</h3>
+                    <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                      Pengajuan pinjaman Anda telah kami terima dan sedang diverifikasi oleh analis (1x24 jam). Hasilnya akan kami kirimkan melalui notifikasi akun.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStage("lengkapi_data")}
+                    className="w-full rounded-2xl bg-slate-100 py-3.5 text-xs font-black text-slate-700 hover:bg-slate-200 transition active:scale-[0.99]"
+                  >
+                    Lihat Berkas yang Diajukan
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Opsi Cek Berkas jika status disetujui */}
+            {application?.status === "approved" && (
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  onClick={() => setStage("lengkapi_data")}
+                  className="text-xs font-bold text-slate-400 hover:text-slate-600 underline"
+                >
+                  Lihat Berkas &amp; Formulir Pengajuan
+                </button>
+              </div>
+            )}
+          </main>
+        </div>
+      )}
+
       {/* ── TAHAP 1: AKTIVASI PAYLATER (GAMBAR 1) ── */}
       {stage === "aktivasi" && (
         <div className="flex flex-col min-h-screen justify-between p-6">
@@ -1160,9 +1430,9 @@ export default function PayLaterApplication() {
             <div className="flex items-center gap-4 py-2">
               <button
                 type="button"
-                onClick={() => setStage("simulasi")}
+                onClick={() => (application ? setStage("riwayat") : setStage("simulasi"))}
                 className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
-                aria-label="Kembali ke Simulasi"
+                aria-label="Kembali"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
@@ -1468,14 +1738,25 @@ export default function PayLaterApplication() {
             )}
           </div>
 
-          {/* Tombol kembali ke Beranda */}
-          <button
-            type="button"
-            onClick={() => navigate("/app")}
-            className="mt-6 w-full rounded-2xl bg-slate-100 py-3.5 text-sm font-black text-slate-600 hover:bg-slate-200 transition"
-          >
-            Kembali ke Beranda
-          </button>
+          {/* Tombol kembali ke Beranda / Riwayat */}
+          <div className="mt-6 space-y-2">
+            {application && (
+              <button
+                type="button"
+                onClick={() => setStage("riwayat")}
+                className="w-full rounded-2xl bg-primary-700 py-3.5 text-sm font-black text-white hover:bg-primary-800 transition active:scale-[0.99] shadow-sm"
+              >
+                Kembali ke Riwayat Pinjaman
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => navigate("/app")}
+              className="w-full rounded-2xl bg-slate-100 py-3.5 text-sm font-black text-slate-600 hover:bg-slate-200 transition"
+            >
+              Kembali ke Beranda
+            </button>
+          </div>
         </div>
       )}
 
@@ -2427,6 +2708,232 @@ export default function PayLaterApplication() {
           </div>
         </div>
       </Modal>
+
+      {/* ── MODAL DETAIL PINJAMAN / SURAT PERSETUJUAN (SESUAI GAMBAR 2 & 3) ── */}
+      {openSuratModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setOpenSuratModal(false)}
+        >
+          <div
+            className="relative flex flex-col w-full max-w-lg max-h-[92vh] rounded-3xl bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Merah Modal */}
+            <div className="flex items-center justify-between bg-[#E11D48] px-5 py-4 text-white shrink-0">
+              <h3 className="text-base font-black tracking-tight text-white">Detail Pinjaman</h3>
+              <button
+                type="button"
+                onClick={() => setOpenSuratModal(false)}
+                className="grid h-8 w-8 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30 transition active:scale-95"
+                aria-label="Tutup"
+              >
+                <X className="h-5 w-5 stroke-[2.5]" />
+              </button>
+            </div>
+
+            {/* Konten Kertas Dokumen Surat (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 text-slate-800 text-xs sm:text-sm leading-relaxed">
+              {/* KOP Surat */}
+              <div className="flex items-center justify-between border-b-2 border-slate-800 pb-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xl font-black text-[#E11D48] tracking-tighter">
+                    {letterTemplate.app_name || "KreditPay"}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <p className="font-black text-slate-900 text-xs sm:text-sm uppercase tracking-wide">
+                    {letterTemplate.letter_company_name || "PT KREDITPAY INDONESIA"}
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Pemberitahuan Sistem Pengajuan Pinjaman
+                  </p>
+                </div>
+              </div>
+
+              {/* Judul & Nomor Surat */}
+              <div className="text-center space-y-1 pt-1">
+                <h4 className="font-black text-sm sm:text-base text-slate-900 uppercase whitespace-pre-line tracking-tight">
+                  {letterTemplate.letter_title || "SURAT PEMBERITAHUAN\nPERSETUJUAN PENGAJUAN PINJAMAN"}
+                </h4>
+                <p className="text-[11px] font-bold text-slate-500">
+                  Nomor:{" "}
+                  {formatLetterNumber(
+                    application?.id,
+                    application?.created_at,
+                    letterTemplate.letter_number_prefix
+                  )}
+                </p>
+              </div>
+
+              {/* Data Nasabah */}
+              <div className="space-y-1.5 text-xs">
+                <p className="font-semibold text-slate-500">Kepada Yth.</p>
+                <p className="font-black text-slate-900 text-sm">
+                  {application?.full_name || formData.fullName || userInfo?.name || "Nasabah"}
+                </p>
+                <div className="grid grid-cols-[100px_10px_1fr] gap-y-0.5 text-slate-600 pt-1">
+                  <span>ID Akun</span>
+                  <span>:</span>
+                  <span className="font-mono font-bold text-slate-800">
+                    ( {userInfo?.username ? userInfo.username.toUpperCase() : `KP-${String(application?.user_id || "").padStart(4, "0")}`} )
+                  </span>
+                  <span>No. Pengajuan</span>
+                  <span>:</span>
+                  <span className="font-mono font-bold text-slate-800">
+                    {formatApplicationCode(application?.id, application?.created_at)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Paragraf Pembuka */}
+              <div className="space-y-2 text-slate-700 leading-relaxed text-xs">
+                <p className="font-semibold">Dengan hormat,</p>
+                <p>
+                  {(
+                    letterTemplate.letter_opening ||
+                    "Berdasarkan hasil proses evaluasi dan verifikasi terhadap pengajuan pinjaman yang Anda ajukan melalui {company_name}, dengan ini kami memberitahukan bahwa pengajuan pinjaman Anda telah DISETUJUI, dengan rincian sebagai berikut:"
+                  ).replace(
+                    /{company_name}/gi,
+                    letterTemplate.letter_company_name || "PT KREDITPAY INDONESIA"
+                  )}
+                </p>
+              </div>
+
+              {/* Tabel Rincian Pinjaman */}
+              <div className="rounded-2xl border border-slate-100 bg-[#F8FAFC] p-4 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <span className="text-slate-500 font-semibold">Status Pinjaman</span>
+                  <span className="rounded-md bg-emerald-100 px-2.5 py-0.5 text-xs font-black text-emerald-800">
+                    Diterima
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <span className="text-slate-500 font-semibold">Tenor Pinjaman</span>
+                  <span className="font-black text-slate-800">
+                    {application?.requested_tenor || requestedTenor} Bulan
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <span className="text-slate-500 font-semibold">Cicilan per Bulan</span>
+                  <span className="font-black text-slate-800">
+                    {formatRupiah(application?.monthly_installment || monthlyInstallment)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <span className="text-slate-500 font-semibold">Tanggal Persetujuan</span>
+                  <span className="font-bold text-slate-700">
+                    {formatFormalDateTime(application?.created_at)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-slate-800 font-extrabold">Total Pinjaman Disetujui</span>
+                  <span className="text-sm sm:text-base font-black text-slate-900">
+                    {formatRupiah(application?.requested_amount || requestedAmount)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Bagian Aturan Pencairan Limit Pinjaman */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 space-y-3">
+                <div className="flex items-center gap-2 border-b border-slate-200/80 pb-2.5">
+                  <span className="grid h-6 w-6 place-items-center rounded-lg bg-slate-200 text-slate-700">
+                    <Receipt className="h-3.5 w-3.5" />
+                  </span>
+                  <div>
+                    <h5 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                      ATURAN PENCAIRAN LIMIT PINJAMAN
+                    </h5>
+                    <p className="text-[10px] text-slate-400 font-medium">
+                      Informasi yang perlu diperhatikan sebelum menggunakan fitur pencairan
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-[11px] text-slate-700 leading-relaxed">
+                  {(letterTemplate.letter_rules_content || "")
+                    .split("\n")
+                    .map((line, idx) => {
+                      if (line.includes("[TOPUP_HIGHLIGHT]")) {
+                        return (
+                          <div
+                            key={idx}
+                            className="my-2 rounded-xl border border-rose-200 bg-rose-50/90 py-2.5 px-4 text-center font-black text-rose-600 text-xs shadow-2xs"
+                          >
+                            Top-up {letterTemplate.letter_rules_min_topup || "Rp 1.000.000 (satu juta rupiah)"}
+                          </div>
+                        );
+                      }
+                      if (!line.trim()) return null;
+                      return (
+                        <div key={idx} className="flex items-start gap-2">
+                          <span className="mt-1.5 h-1 w-1 rounded-full bg-slate-600 shrink-0" />
+                          <span>{line.replace(/^-\s*/, "")}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Penutup */}
+              <div className="space-y-1 text-xs text-slate-700 leading-relaxed pt-1">
+                <p>
+                  {(
+                    letterTemplate.letter_closing ||
+                    "Demikian surat pemberitahuan ini kami sampaikan. Terima kasih atas kepercayaan Anda kepada {company_name}."
+                  ).replace(
+                    /{company_name}/gi,
+                    letterTemplate.letter_company_name || "PT KREDITPAY INDONESIA"
+                  )}
+                </p>
+              </div>
+
+              {/* Tanggal & Tanda Tangan Resmi */}
+              <div className="pt-2 text-xs space-y-1">
+                <p className="font-bold text-slate-700">
+                  {formatFormalDate(application?.created_at || new Date())}
+                </p>
+                <p className="text-slate-500">Hormat kami,</p>
+                <p className="font-black text-[#E11D48] uppercase">
+                  {letterTemplate.letter_company_name || "PT KREDITPAY INDONESIA"}
+                </p>
+
+                {/* Stempel Basah Resmi Merah */}
+                <div className="py-2">
+                  <div className="inline-block -rotate-6 rounded-lg border-2 border-dashed border-[#E11D48]/80 px-4 py-2 text-center text-[#E11D48] bg-rose-50/40 shadow-2xs select-none">
+                    <p className="text-[11px] font-black tracking-widest uppercase">
+                      {letterTemplate.app_name || "KREDITPAY"}
+                    </p>
+                    <p className="text-[9px] font-extrabold uppercase">
+                      {letterTemplate.letter_company_name || "PT KREDITPAY INDONESIA"}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="font-extrabold text-slate-900 pt-1">
+                  {letterTemplate.letter_signer || "Tim Operasional"}
+                </p>
+              </div>
+
+              {/* Box Informasi Penting di Footer Dokumen */}
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 space-y-1 text-[11px]">
+                <p className="font-black text-[#E11D48] uppercase tracking-wide">
+                  INFORMASI PENTING
+                </p>
+                <p className="text-slate-600 font-medium leading-relaxed">
+                  {(
+                    letterTemplate.letter_important_notes ||
+                    "Jaga kerahasiaan akun dan data pribadi Anda. {company_name} tidak meminta PIN, OTP, atau password kepada siapapun melalui media lainnya."
+                  ).replace(
+                    /{company_name}/gi,
+                    letterTemplate.letter_company_name || "PT KREDITPAY INDONESIA"
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
