@@ -506,6 +506,24 @@ app.get("/api/admin/paylater", adminOnly, wrap((req, res) =>
   })
 ));
 
+const formatAccNotification = (userName, nominalStr, settings = {}) => {
+  const appName = settings.app_name || "KreditPay";
+  let title = settings.notif_acc_title || "Pengajuan Pinjaman Disetujui (ACC)";
+  let body = settings.notif_acc_message || "Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.";
+
+  title = title
+    .replace(/{name}/gi, userName)
+    .replace(/{nominal}/gi, nominalStr)
+    .replace(/{app_name}/gi, appName);
+
+  body = body
+    .replace(/{name}/gi, userName)
+    .replace(/{nominal}/gi, nominalStr)
+    .replace(/{app_name}/gi, appName);
+
+  return { title, body };
+};
+
 app.put("/api/admin/paylater/:id/status", adminOnly, wrap(async (req, res) => {
   const status = clean(req.body.status, 20);
   const limitAmount = amountOf(req.body.limit) || 50000000;
@@ -521,17 +539,26 @@ app.put("/api/admin/paylater/:id/status", adminOnly, wrap(async (req, res) => {
         "UPDATE users SET paylater_limit=?, level=CASE WHEN level < 2 THEN 2 ELSE level END WHERE id=?",
         [limitAmount, appRow.user_id]
       );
+
+      // Ambil template notifikasi kustom dari app_settings
+      const [settingRows] = await c.query(
+        "SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('notif_acc_title', 'notif_acc_message', 'app_name')"
+      );
+      const sMap = settingRows.reduce((acc, r) => { acc[r.setting_key] = r.setting_value; return acc; }, {});
+
+      const [[userRow]] = await c.query("SELECT name, username FROM users WHERE id=?", [appRow.user_id]);
+      const userName = userRow?.name || appRow.full_name || "Nasabah";
+      const nominalStr = `Rp ${Number(limitAmount).toLocaleString("id-ID")}`;
+
+      const { title, body } = formatAccNotification(userName, nominalStr, sMap);
+
       await c.query(
-        "INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)",
-        [
-          appRow.user_id,
-          "Pengajuan Pinjaman Disetujui (ACC)",
-          `Selamat! Pengajuan pinjaman Anda sebesar Rp ${Number(limitAmount).toLocaleString("id-ID")} telah disetujui (ACC) oleh tim KreditPay.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.`
-        ]
+        "INSERT INTO notifications (user_id, title, body, created_at) VALUES (?, ?, ?, NOW())",
+        [appRow.user_id, title, body]
       );
     } else if (status === "rejected") {
       await c.query(
-        "INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)",
+        "INSERT INTO notifications (user_id, title, body, created_at) VALUES (?, ?, ?, NOW())",
         [
           appRow.user_id,
           "Pengajuan Pinjaman Belum Disetujui",
@@ -571,6 +598,12 @@ app.post("/api/admin/paylater/bulk-approve", adminOnly, wrap(async (req, res) =>
     return fail(res, 400, "Tidak ada pengajuan berstatus 'menunggu' yang dapat disetujui");
   }
 
+  // Ambil template notifikasi kustom dari app_settings
+  const [settingRows] = await db.query(
+    "SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('notif_acc_title', 'notif_acc_message', 'app_name')"
+  );
+  const sMap = settingRows.reduce((acc, r) => { acc[r.setting_key] = r.setting_value; return acc; }, {});
+
   await withTx(async (c) => {
     for (const app of applications) {
       const limitToSet = app.requested_amount > 0 ? Number(app.requested_amount) : fallbackLimit;
@@ -579,13 +612,16 @@ app.post("/api/admin/paylater/bulk-approve", adminOnly, wrap(async (req, res) =>
         "UPDATE users SET paylater_limit = ?, level = CASE WHEN level < 2 THEN 2 ELSE level END WHERE id = ?",
         [limitToSet, app.user_id]
       );
+
+      const [[userRow]] = await c.query("SELECT name FROM users WHERE id=?", [app.user_id]);
+      const userName = userRow?.name || "Nasabah";
+      const nominalStr = `Rp ${Number(limitToSet).toLocaleString("id-ID")}`;
+
+      const { title, body } = formatAccNotification(userName, nominalStr, sMap);
+
       await c.query(
-        "INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)",
-        [
-          app.user_id,
-          "Pengajuan Pinjaman Disetujui (ACC)",
-          `Selamat! Pengajuan pinjaman Anda sebesar Rp ${Number(limitToSet).toLocaleString("id-ID")} telah disetujui (ACC) oleh tim KreditPay.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.`
-        ]
+        "INSERT INTO notifications (user_id, title, body, created_at) VALUES (?, ?, ?, NOW())",
+        [app.user_id, title, body]
       );
     }
   });
@@ -960,10 +996,18 @@ app.get("/api/admin/settings", adminOnly, wrap(async (req, res) => {
 
 app.put("/api/admin/settings", adminOnly, wrap(async (req, res) => {
   const body = req.body || {};
-  const allowed = ["whatsapp_number", "whatsapp_message", "app_name", "cs_email", "cs_operational_hours"];
+  const allowed = [
+    "whatsapp_number",
+    "whatsapp_message",
+    "app_name",
+    "cs_email",
+    "cs_operational_hours",
+    "notif_acc_title",
+    "notif_acc_message"
+  ];
   for (const key of allowed) {
     if (body[key] !== undefined) {
-      const val = clean(String(body[key]), 500);
+      const val = clean(String(body[key]), 3000);
       await db.query(
         "INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
         [key, val]
@@ -1817,9 +1861,18 @@ async function initDb() {
         ('whatsapp_message', 'Halo Admin KreditPay, saya butuh bantuan terkait akun saya.', 'Pesan template awal saat user menghubungi CS via WhatsApp'),
         ('app_name', 'KreditPay', 'Nama Aplikasi'),
         ('cs_email', 'support@kreditpay.com', 'Email Dukungan Pelanggan'),
-        ('cs_operational_hours', 'Senin - Minggu: 08:00 - 22:00 WIB', 'Jam Operasional CS')
+        ('cs_operational_hours', 'Senin - Minggu: 08:00 - 22:00 WIB', 'Jam Operasional CS'),
+        ('notif_acc_title', 'Pengajuan Pinjaman Disetujui (ACC)', 'Judul notifikasi saat pinjaman nasabah disetujui'),
+        ('notif_acc_message', 'Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.', 'Pesan notifikasi saat pinjaman disetujui')
       `);
       console.log("Seeded initial app settings");
+    } else {
+      // Pastikan key template notifikasi ada jika DB sudah terisi sebelumnya
+      await db.query(`
+        INSERT IGNORE INTO app_settings (setting_key, setting_value, description) VALUES
+        ('notif_acc_title', 'Pengajuan Pinjaman Disetujui (ACC)', 'Judul notifikasi saat pinjaman nasabah disetujui'),
+        ('notif_acc_message', 'Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.', 'Pesan notifikasi saat pinjaman disetujui')
+      `);
     }
 
     /* ── Live Chat Messages Table ── */

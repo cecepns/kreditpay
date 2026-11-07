@@ -201,4 +201,6 @@ INSERT INTO app_settings (setting_key, setting_value, description) VALUES
 ('whatsapp_message', 'Halo Admin KreditPay, saya butuh bantuan terkait akun saya.', 'Pesan template awal saat user menghubungi CS via WhatsApp'),
 ('app_name', 'KreditPay', 'Nama Aplikasi'),
 ('cs_email', 'support@kreditpay.com', 'Email Dukungan Pelanggan'),
-('cs_operational_hours', 'Senin - Minggu: 08:00 - 22:00 WIB', 'Jam Operasional CS');
+('cs_operational_hours', 'Senin - Minggu: 08:00 - 22:00 WIB', 'Jam Operasional CS'),
+('notif_acc_title', 'Pengajuan Pinjaman Disetujui (ACC)', 'Judul notifikasi saat pinjaman nasabah disetujui'),
+('notif_acc_message', 'Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.', 'Pesan notifikasi saat pinjaman disetujui');
