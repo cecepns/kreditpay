@@ -204,7 +204,6 @@ export default function PayLaterApplication() {
       .then((res) => {
         if (res.data) {
           setApplication(res.data);
-          setStage("lengkapi_data");
           if (res.data.requested_amount) setRequestedAmount(Number(res.data.requested_amount));
           if (res.data.requested_tenor) setRequestedTenor(Number(res.data.requested_tenor));
           setNasabahComplete(true);
@@ -884,13 +883,13 @@ export default function PayLaterApplication() {
             </div>
           </div>
 
-          {/* Tombol Lanjutkan (Toska) */}
+          {/* Tombol Aktivasi PayLater (Toska) */}
           <button
             type="button"
             onClick={() => setStage("simulasi")}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#00D1B2] py-4 text-base font-black text-white shadow-lg shadow-[#00D1B2]/30 transition hover:bg-[#00c4a7] active:scale-[0.98]"
           >
-            Lanjutkan
+            Aktivasi PayLater
             <ArrowRight className="h-5 w-5" />
           </button>
         </div>
@@ -1052,8 +1051,9 @@ export default function PayLaterApplication() {
             <div className="flex items-center gap-4 py-2">
               <button
                 type="button"
-                onClick={() => (application ? navigate("/app") : setStage("simulasi"))}
+                onClick={() => setStage("simulasi")}
                 className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
+                aria-label="Kembali ke Simulasi"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
@@ -1074,15 +1074,13 @@ export default function PayLaterApplication() {
                   Estimasi: <b className="text-[#1e3a8a]">{formatRupiah(monthlyInstallment)}/bln</b> (Bunga 2% p.a.)
                 </p>
               </div>
-              {!application && (
-                <button
-                  type="button"
-                  onClick={() => setStage("simulasi")}
-                  className="rounded-2xl border border-amber-300 bg-white px-3.5 py-2 text-xs font-black text-amber-800 hover:bg-amber-100/70 shadow-xs transition"
-                >
-                  Ubah
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setStage("simulasi")}
+                className="rounded-2xl border border-amber-300 bg-white px-3.5 py-2 text-xs font-black text-amber-800 hover:bg-amber-100/70 shadow-xs transition"
+              >
+                Ubah
+              </button>
             </div>
 
             {/* Kotak Status Pengajuan & Roket */}
