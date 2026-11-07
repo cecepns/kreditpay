@@ -934,10 +934,6 @@ export default function PayLaterApplication() {
                   <ArrowLeft className="h-4 w-4 stroke-[2.5]" />
                   <span>Kembali</span>
                 </button>
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-black tracking-wide text-white backdrop-blur-md">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                  <span>KreditPay PayLater</span>
-                </div>
               </div>
 
               <div className="mt-4 space-y-1">
@@ -1315,8 +1311,8 @@ export default function PayLaterApplication() {
                         type="button"
                         onClick={() => setRequestedAmount(amt)}
                         className={`rounded-full px-3 py-1 text-xs font-black transition active:scale-95 ${isSelected
-                            ? "bg-primary-700 text-white shadow-xs"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          ? "bg-primary-700 text-white shadow-xs"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           }`}
                       >
                         {amt >= 1000000000 ? `${amt / 1000000000} Milyar` : `${amt / 1000000} Jt`}
@@ -1367,8 +1363,8 @@ export default function PayLaterApplication() {
                         type="button"
                         onClick={() => setRequestedTenor(t)}
                         className={`rounded-xl py-1.5 text-center text-xs font-black transition active:scale-95 ${isSelected
-                            ? "bg-blue-50 text-blue-700 ring-2 ring-blue-600"
-                            : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                          ? "bg-blue-50 text-blue-700 ring-2 ring-blue-600"
+                          : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                           }`}
                       >
                         {t} Bln
@@ -1530,8 +1526,8 @@ export default function PayLaterApplication() {
               <div
                 onClick={() => !application && setStage("data_nasabah")}
                 className={`rounded-2xl border p-4 flex items-center justify-between transition cursor-pointer ${nasabahComplete
-                    ? "border-emerald-200 bg-emerald-50/40"
-                    : "border-slate-100 bg-white hover:border-slate-200"
+                  ? "border-emerald-200 bg-emerald-50/40"
+                  : "border-slate-100 bg-white hover:border-slate-200"
                   }`}
               >
                 <div className="flex items-center gap-3.5">
@@ -1562,8 +1558,8 @@ export default function PayLaterApplication() {
               <div
                 onClick={() => !application && setOpenPekerjaanModal(true)}
                 className={`rounded-2xl border p-4 flex items-center justify-between transition cursor-pointer ${pekerjaanComplete
-                    ? "border-emerald-200 bg-emerald-50/40"
-                    : "border-slate-100 bg-white hover:border-slate-200"
+                  ? "border-emerald-200 bg-emerald-50/40"
+                  : "border-slate-100 bg-white hover:border-slate-200"
                   }`}
               >
                 <div className="flex items-center gap-3.5">
@@ -1594,8 +1590,8 @@ export default function PayLaterApplication() {
               <div
                 onClick={() => !application && setStage("data_tambahan")}
                 className={`rounded-2xl border p-4 flex items-center justify-between transition cursor-pointer ${tambahanComplete
-                    ? "border-emerald-200 bg-emerald-50/40"
-                    : "border-slate-100 bg-white hover:border-slate-200"
+                  ? "border-emerald-200 bg-emerald-50/40"
+                  : "border-slate-100 bg-white hover:border-slate-200"
                   }`}
               >
                 <div className="flex items-center gap-3.5">
@@ -1625,8 +1621,8 @@ export default function PayLaterApplication() {
               {/* 4. Validasi dan Kirim */}
               <div
                 className={`rounded-2xl border p-4 flex items-center justify-between transition ${progress === 100 && !application
-                    ? "border-primary-200 bg-primary-50/40"
-                    : "border-slate-100 bg-white"
+                  ? "border-primary-200 bg-primary-50/40"
+                  : "border-slate-100 bg-white"
                   }`}
               >
                 <div className="flex items-center gap-3.5">
@@ -1672,10 +1668,10 @@ export default function PayLaterApplication() {
               <div className="rounded-2xl border border-slate-100 bg-white p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3.5">
                   <div className={`grid h-11 w-11 place-items-center rounded-2xl shrink-0 ${application?.status === "approved"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : application?.status === "pending"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-slate-100 text-slate-400"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : application?.status === "pending"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-slate-100 text-slate-400"
                     }`}>
                     <Banknote className="h-5 w-5" />
                   </div>
@@ -2688,8 +2684,8 @@ export default function PayLaterApplication() {
               />
               <div
                 className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-all ${agreedChecked
-                    ? "bg-blue-600 border-blue-600 text-white shadow-xs"
-                    : "bg-white border-slate-300 text-transparent group-hover:border-slate-400"
+                  ? "bg-blue-600 border-blue-600 text-white shadow-xs"
+                  : "bg-white border-slate-300 text-transparent group-hover:border-slate-400"
                   }`}
               >
                 <Check className="h-3.5 w-3.5 stroke-[3]" />
@@ -2775,8 +2771,8 @@ export default function PayLaterApplication() {
                       type="button"
                       onClick={() => setActiveLetterModelTab(m.id)}
                       className={`flex-1 rounded-xl px-2 py-1 text-[10px] font-black tracking-tight transition truncate text-center ${isCur
-                          ? "bg-blue-600 text-white shadow-xs"
-                          : "bg-white text-slate-600 hover:bg-slate-200/60 border border-slate-200/80"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-white text-slate-600 hover:bg-slate-200/60 border border-slate-200/80"
                         }`}
                     >
                       {m.id === "model_1" && "1. FinTech"}
