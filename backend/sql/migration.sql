@@ -121,3 +121,40 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- -------------------------------------------------------------------
+-- 4. Kolom Baru pada users (level akun)
+-- -------------------------------------------------------------------
+DELIMITER $$
+DROP PROCEDURE IF EXISTS AddCol $$
+CREATE PROCEDURE AddCol(IN t VARCHAR(64), IN c VARCHAR(64), IN d TEXT)
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = t AND COLUMN_NAME = c) THEN
+    SET @s = CONCAT('ALTER TABLE ', t, ' ADD COLUMN ', c, ' ', d);
+    PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+  END IF;
+END $$
+DELIMITER ;
+
+CALL AddCol('users', 'level', 'INT NOT NULL DEFAULT 1 AFTER role');
+CALL AddCol('transactions', 'proof', 'VARCHAR(255) NULL AFTER target');
+CALL AddCol('notifications', 'user_id', 'INT NULL AFTER id');
+
+DROP PROCEDURE IF EXISTS AddCol;
+
+-- -------------------------------------------------------------------
+-- 5. Index & Relasi Notifikasi ke Pengguna
+-- -------------------------------------------------------------------
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'notifications' AND INDEX_NAME = 'idx_notif_user');
+SET @sql_idx = IF(@idx_exists = 0, 'ALTER TABLE notifications ADD INDEX idx_notif_user (user_id)', 'SELECT 1');
+PREPARE st_idx FROM @sql_idx; EXECUTE st_idx; DEALLOCATE PREPARE st_idx;
+
+SET @fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'notifications' AND CONSTRAINT_NAME = 'fk_notif_user');
+SET @sql_fk = IF(@fk_exists = 0, 'ALTER TABLE notifications ADD CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE', 'SELECT 1');
+PREPARE st_fk FROM @sql_fk; EXECUTE st_fk; DEALLOCATE PREPARE st_fk;
+
+-- -------------------------------------------------------------------
+-- 6. Tabel level_configs: Penyesuaian Kolom title & Teks
+-- -------------------------------------------------------------------
+ALTER TABLE level_configs MODIFY COLUMN title TEXT NOT NULL;
+
+

@@ -48,10 +48,13 @@ CREATE TABLE transactions (
 
 CREATE TABLE notifications (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NULL,
   title VARCHAR(150) NOT NULL,
   body TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_notif_created (created_at)
+  INDEX idx_notif_created (created_at),
+  INDEX idx_notif_user (user_id),
+  CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE bank_accounts (
@@ -128,7 +131,7 @@ CREATE TABLE level_configs (
   level INT PRIMARY KEY,
   name VARCHAR(50) NOT NULL,
   badge_label VARCHAR(100) NOT NULL,
-  title VARCHAR(150) NOT NULL,
+  title TEXT NOT NULL,
   subtitle VARCHAR(150) NULL,
   message TEXT NOT NULL,
   note TEXT NULL,

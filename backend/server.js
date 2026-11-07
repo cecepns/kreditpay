@@ -177,7 +177,7 @@ app.post("/api/auth/register", wrap(async (req, res) => {
   if (error) return fail(res, 400, error);
   const hash = await bcrypt.hash(data.pin, 10);
   const [r] = await db.query(
-    "INSERT INTO users (name,username,email,phone,pin_hash,paylater_limit) VALUES (?,?,?,?,?,5000000)",
+    "INSERT INTO users (name,username,email,phone,pin_hash,paylater_limit) VALUES (?,?,?,?,?,0)",
     [data.name, data.username, data.email, data.phone, hash]
   );
   const user = await findUser(r.insertId);
@@ -197,10 +197,6 @@ app.post("/api/auth/login", wrap(async (req, res) => {
 app.get("/api/auth/profile", userOnly, wrap(async (req, res) => {
   const user = await findUser(req.user.id);
   if (!user) return fail(res, 401, "Akun tidak ditemukan");
-  if (Number(user.level || 1) < 2 && (Number(user.paylater_limit) > 0 || Number(user.balance) > 0)) {
-    await db.query("UPDATE users SET level = 2 WHERE id = ? AND level < 2", [user.id]);
-    user.level = 2;
-  }
   ok(res, user);
 }));
 
@@ -215,12 +211,10 @@ app.get("/api/dashboard", userOnly, wrap(async (req, res) => {
   const user = await findUser(req.user.id);
   if (!user) return fail(res, 401, "Akun tidak ditemukan");
 
-  if (Number(user.level || 1) < 2 && (Number(user.paylater_limit) > 0 || Number(user.balance) > 0)) {
-    await db.query("UPDATE users SET level = 2 WHERE id = ? AND level < 2", [user.id]);
-    user.level = 2;
-  }
-
-  const [[{ total }]] = await db.query("SELECT COUNT(*) AS total FROM notifications");
+  const [[{ total }]] = await db.query(
+    "SELECT COUNT(*) AS total FROM notifications WHERE user_id IS NULL OR user_id = ?",
+    [req.user.id]
+  );
   ok(res, {
     balance: user.balance,
     paylater: { limit: user.paylater_limit, used: user.paylater_used, available: user.paylater_limit - user.paylater_used },
@@ -512,6 +506,23 @@ app.put("/api/admin/paylater/:id/status", adminOnly, wrap(async (req, res) => {
         "UPDATE users SET paylater_limit=?, level=CASE WHEN level < 2 THEN 2 ELSE level END WHERE id=?",
         [limitAmount, appRow.user_id]
       );
+      await c.query(
+        "INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)",
+        [
+          appRow.user_id,
+          "Pengajuan Pinjaman Disetujui (ACC)",
+          `Selamat! Pengajuan pinjaman Anda sebesar Rp ${Number(limitAmount).toLocaleString("id-ID")} telah disetujui (ACC) oleh tim KreditPay.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.`
+        ]
+      );
+    } else if (status === "rejected") {
+      await c.query(
+        "INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)",
+        [
+          appRow.user_id,
+          "Pengajuan Pinjaman Belum Disetujui",
+          "Mohon maaf, pengajuan pinjaman Anda belum dapat disetujui saat ini. Silakan periksa kembali kelengkapan data pengajuan Anda atau hubungi layanan bantuan pelanggan KreditPay."
+        ]
+      );
     }
   });
 
@@ -553,6 +564,14 @@ app.post("/api/admin/paylater/bulk-approve", adminOnly, wrap(async (req, res) =>
         "UPDATE users SET paylater_limit = ?, level = CASE WHEN level < 2 THEN 2 ELSE level END WHERE id = ?",
         [limitToSet, app.user_id]
       );
+      await c.query(
+        "INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)",
+        [
+          app.user_id,
+          "Pengajuan Pinjaman Disetujui (ACC)",
+          `Selamat! Pengajuan pinjaman Anda sebesar Rp ${Number(limitToSet).toLocaleString("id-ID")} telah disetujui (ACC) oleh tim KreditPay.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.`
+        ]
+      );
     }
   });
 
@@ -568,14 +587,14 @@ app.post("/api/admin/paylater/bulk-reject", adminOnly, wrap(async (req, res) => 
   let applications = [];
   if (all_pending) {
     const [rows] = await db.query(
-      "SELECT id FROM paylater_applications WHERE status = 'pending'"
+      "SELECT id, user_id FROM paylater_applications WHERE status = 'pending'"
     );
     applications = rows;
   } else if (Array.isArray(ids) && ids.length > 0) {
     const cleanIds = ids.map((id) => parseInt(id)).filter(Boolean);
     if (cleanIds.length === 0) return fail(res, 400, "Daftar ID tidak valid");
     const [rows] = await db.query(
-      `SELECT id FROM paylater_applications WHERE id IN (?) AND status = 'pending'`,
+      `SELECT id, user_id FROM paylater_applications WHERE id IN (?) AND status = 'pending'`,
       [cleanIds]
     );
     applications = rows;
@@ -589,6 +608,18 @@ app.post("/api/admin/paylater/bulk-reject", adminOnly, wrap(async (req, res) => 
 
   const appIds = applications.map((a) => a.id);
   await db.query("UPDATE paylater_applications SET status = 'rejected' WHERE id IN (?)", [appIds]);
+  for (const a of applications) {
+    if (a.user_id) {
+      await db.query(
+        "INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)",
+        [
+          a.user_id,
+          "Pengajuan Pinjaman Belum Disetujui",
+          "Mohon maaf, pengajuan pinjaman Anda belum dapat disetujui saat ini. Silakan periksa kembali kelengkapan data pengajuan Anda atau hubungi layanan bantuan pelanggan KreditPay."
+        ]
+      );
+    }
+  }
 
   ok(res, { count: applications.length }, {
     message: `Berhasil menolak ${applications.length} pengajuan Pinjaman.`,
@@ -611,7 +642,15 @@ app.get("/api/transactions", userOnly, wrap((req, res) =>
 
 const NOTIF_SORT = { created_at: "created_at", title: "title" };
 app.get("/api/notifications", userOnly, wrap((req, res) =>
-  paginate(req, res, { from: "notifications", select: "id,title,body,created_at", searchCols: ["title", "body"], sortable: NOTIF_SORT, defaultSort: "created_at" })
+  paginate(req, res, {
+    from: "notifications",
+    select: "id,user_id,title,body,created_at",
+    searchCols: ["title", "body"],
+    sortable: NOTIF_SORT,
+    defaultSort: "created_at",
+    baseWhere: ["(user_id IS NULL OR user_id = ?)"],
+    baseParams: [req.user.id],
+  })
 ));
 
 /* ── Admin: Users ── */
@@ -1394,16 +1433,14 @@ async function initDb() {
     }
 
     try {
-      await db.query(`
-        UPDATE users SET level = 2 
-        WHERE level < 2 AND (
-          paylater_limit > 0 
-          OR balance > 0 
-          OR id IN (SELECT user_id FROM paylater_applications WHERE status = 'approved')
-        )
-      `);
+      await db.query("ALTER TABLE notifications ADD COLUMN user_id INT NULL AFTER id");
     } catch {
-      // ignore
+      // Kolom user_id sudah ada
+    }
+    try {
+      await db.query("ALTER TABLE notifications ADD INDEX idx_notif_user (user_id)");
+    } catch {
+      // Index user_id sudah ada
     }
 
     try {

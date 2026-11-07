@@ -8,12 +8,9 @@ import { formatRupiah } from "@/utils/format";
 export default function BalanceCard({ summary, loading, userLevel, onTopUp, onTransfer, onApplyPaylater }) {
   const pl = summary?.paylater;
   const pct = pl && pl.limit > 0 ? Math.max(0, Math.min(100, (pl.available / pl.limit) * 100)) : 0;
-  const isPaylaterApproved = (pl && Number(pl.limit) > 0) || Number(userLevel ?? 1) >= 2;
-  const isVerified =
-    Number(userLevel ?? 1) >= 2 ||
-    Number(summary?.level ?? 1) >= 2 ||
-    (pl && Number(pl.limit) > 0) ||
-    Number(summary?.balance ?? 0) > 0;
+  const effectiveLevel = Number(userLevel ?? summary?.level ?? 1);
+  const isPaylaterApproved = effectiveLevel >= 2;
+  const isVerified = effectiveLevel >= 2;
 
   return (
     <section className="relative overflow-hidden rounded-3xl bg-white p-6 shadow-xl shadow-slate-200/70">
