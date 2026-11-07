@@ -19,6 +19,7 @@ import AdminNotifications from "@/pages/admin/AdminNotifications";
 import AdminTransactions from "@/pages/admin/AdminTransactions";
 import AdminPromos from "@/pages/admin/AdminPromos";
 import AdminSettings from "@/pages/admin/AdminSettings";
+import AdminChat from "@/pages/admin/AdminChat";
 
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
       <Route path="/admin" element={<ProtectedRoute roles={["admin"]}><AdminLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="chat" element={<AdminChat />} />
         <Route path="paylater" element={<AdminPayLater />} />
         <Route path="levels" element={<AdminLevels />} />
         <Route path="users" element={<AdminUsers />} />

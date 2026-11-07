@@ -154,6 +154,15 @@ const uploadDocs = multer({
   fileFilter: (req, file, cb) => (MIME_EXT[file.mimetype] ? cb(null, true) : cb(new Error("INVALID_FILE"))),
 });
 
+const uploadChat = multer({
+  storage: multer.diskStorage({
+    destination: UPLOAD_DIR,
+    filename: (req, file, cb) => cb(null, `chat-${req.user.id}-${Date.now()}${MIME_EXT[file.mimetype] || ".jpg"}`),
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => (MIME_EXT[file.mimetype] ? cb(null, true) : cb(new Error("INVALID_FILE"))),
+});
+
 /* ───────────── App ───────────── */
 const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : true }));
@@ -385,6 +394,15 @@ app.post(
     const company_name = clean(req.body.company_name, 100) || "-";
     const monthly_income = amountOf(req.body.monthly_income);
 
+    // Simulasi Pinjaman PayLater
+    const requested_amount = amountOf(req.body.requested_amount);
+    const requested_tenor = parseInt(req.body.requested_tenor) || 12;
+    const monthly_installment =
+      amountOf(req.body.monthly_installment) ||
+      (requested_amount > 0
+        ? Math.round((requested_amount * (1 + 0.02 * (requested_tenor / 12))) / requested_tenor)
+        : 0);
+
     if (!nik || nik.length < 16) return fail(res, 400, "NIK harus minimal 16 digit");
     if (!birth_date) return fail(res, 400, "Tanggal lahir harus diisi");
 
@@ -402,7 +420,8 @@ app.post(
 
     const [r] = await db.query(
       `INSERT INTO paylater_applications 
-       (user_id, full_name, nik, birth_place, birth_date, mother_name,
+       (user_id, requested_amount, requested_tenor, monthly_installment,
+        full_name, nik, birth_place, birth_date, mother_name,
         ktp_address, ktp_province, ktp_city, ktp_district, ktp_village,
         domicile_address, domicile_province, domicile_city, domicile_district, domicile_village, residence_years,
         emergency_name, emergency_relation, emergency_phone, emergency_address,
@@ -410,9 +429,12 @@ app.post(
         ktp_image, ktp_back_image, selfie_image,
         kk_image, slip_gaji_image, npwp_image, bpjs_image, ijazah_image, passport_image,
         status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
       [
         req.user.id,
+        requested_amount,
+        requested_tenor,
+        monthly_installment,
         full_name,
         nik,
         birth_place,
@@ -480,6 +502,80 @@ app.put("/api/admin/paylater/:id/status", adminOnly, wrap(async (req, res) => {
   });
 
   ok(res, null, { message: `Pengajuan PayLater berhasil diubah ke status: ${status}` });
+}));
+
+// Admin: Bulk Approve (ACC Semua / Terpilih)
+app.post("/api/admin/paylater/bulk-approve", adminOnly, wrap(async (req, res) => {
+  const { ids, all_pending, default_limit } = req.body || {};
+  const fallbackLimit = amountOf(default_limit) || 50000000;
+
+  let applications = [];
+  if (all_pending) {
+    const [rows] = await db.query(
+      "SELECT id, user_id, requested_amount FROM paylater_applications WHERE status = 'pending'"
+    );
+    applications = rows;
+  } else if (Array.isArray(ids) && ids.length > 0) {
+    const cleanIds = ids.map((id) => parseInt(id)).filter(Boolean);
+    if (cleanIds.length === 0) return fail(res, 400, "Daftar ID tidak valid");
+    const [rows] = await db.query(
+      `SELECT id, user_id, requested_amount FROM paylater_applications WHERE id IN (?) AND status = 'pending'`,
+      [cleanIds]
+    );
+    applications = rows;
+  } else {
+    return fail(res, 400, "Tentukan pengajuan yang akan disetujui");
+  }
+
+  if (applications.length === 0) {
+    return fail(res, 400, "Tidak ada pengajuan berstatus 'menunggu' yang dapat disetujui");
+  }
+
+  await withTx(async (c) => {
+    for (const app of applications) {
+      const limitToSet = app.requested_amount > 0 ? Number(app.requested_amount) : fallbackLimit;
+      await c.query("UPDATE paylater_applications SET status = 'approved' WHERE id = ?", [app.id]);
+      await c.query("UPDATE users SET paylater_limit = ? WHERE id = ?", [limitToSet, app.user_id]);
+    }
+  });
+
+  ok(res, { count: applications.length }, {
+    message: `Berhasil menyetujui (ACC) ${applications.length} pengajuan PayLater sekaligus!`,
+  });
+}));
+
+// Admin: Bulk Reject
+app.post("/api/admin/paylater/bulk-reject", adminOnly, wrap(async (req, res) => {
+  const { ids, all_pending } = req.body || {};
+
+  let applications = [];
+  if (all_pending) {
+    const [rows] = await db.query(
+      "SELECT id FROM paylater_applications WHERE status = 'pending'"
+    );
+    applications = rows;
+  } else if (Array.isArray(ids) && ids.length > 0) {
+    const cleanIds = ids.map((id) => parseInt(id)).filter(Boolean);
+    if (cleanIds.length === 0) return fail(res, 400, "Daftar ID tidak valid");
+    const [rows] = await db.query(
+      `SELECT id FROM paylater_applications WHERE id IN (?) AND status = 'pending'`,
+      [cleanIds]
+    );
+    applications = rows;
+  } else {
+    return fail(res, 400, "Tentukan pengajuan yang akan ditolak");
+  }
+
+  if (applications.length === 0) {
+    return fail(res, 400, "Tidak ada pengajuan berstatus 'menunggu' yang dapat ditolak");
+  }
+
+  const appIds = applications.map((a) => a.id);
+  await db.query("UPDATE paylater_applications SET status = 'rejected' WHERE id IN (?)", [appIds]);
+
+  ok(res, { count: applications.length }, {
+    message: `Berhasil menolak ${applications.length} pengajuan PayLater.`,
+  });
 }));
 
 /* ── Transactions & Notifications (user) ── */
@@ -802,6 +898,229 @@ app.put("/api/admin/settings", adminOnly, wrap(async (req, res) => {
   ok(res, { settings, whatsapp_url }, { message: "Pengaturan berhasil disimpan" });
 }));
 
+/* ── Live Chat (User & Admin CS) ── */
+// User: Ambil riwayat chat (Limit 50 + Infinite scroll)
+app.get("/api/chat/messages", userOnly, wrap(async (req, res) => {
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+  const beforeId = parseInt(req.query.beforeId) || null;
+  const afterId = parseInt(req.query.afterId) || null;
+
+  let query = "";
+  let params = [];
+
+  if (afterId) {
+    // Polling pesan baru
+    query = "SELECT id, user_id, sender_role, sender_id, message, attachment, is_read, created_at FROM chat_messages WHERE user_id = ? AND id > ? ORDER BY id ASC";
+    params = [req.user.id, afterId];
+    const [messages] = await db.query(query, params);
+    if (messages.length > 0) {
+      await db.query(
+        "UPDATE chat_messages SET is_read = 1 WHERE user_id = ? AND sender_role = 'admin' AND is_read = 0",
+        [req.user.id]
+      );
+    }
+    return ok(res, messages, { hasMore: false });
+  }
+
+  if (beforeId) {
+    // Infinite scroll memuat pesan lebih lama (ke atas)
+    query = "SELECT id, user_id, sender_role, sender_id, message, attachment, is_read, created_at FROM chat_messages WHERE user_id = ? AND id < ? ORDER BY id DESC LIMIT ?";
+    params = [req.user.id, beforeId, limit];
+  } else {
+    // Load awal: 50 pesan terakhir
+    query = "SELECT id, user_id, sender_role, sender_id, message, attachment, is_read, created_at FROM chat_messages WHERE user_id = ? ORDER BY id DESC LIMIT ?";
+    params = [req.user.id, limit];
+  }
+
+  const [rows] = await db.query(query, params);
+  const messages = rows.reverse(); // Urutkan kronologis dari yang terlama ke terbaru
+
+  let hasMore = false;
+  if (messages.length > 0) {
+    const oldestId = messages[0].id;
+    const [[{ count }]] = await db.query(
+      "SELECT COUNT(*) AS count FROM chat_messages WHERE user_id = ? AND id < ?",
+      [req.user.id, oldestId]
+    );
+    hasMore = count > 0;
+  }
+
+  // Tandai pesan dari admin sudah dibaca oleh user
+  await db.query(
+    "UPDATE chat_messages SET is_read = 1 WHERE user_id = ? AND sender_role = 'admin' AND is_read = 0",
+    [req.user.id]
+  );
+
+  ok(res, messages, {
+    hasMore,
+    pagination: {
+      limit,
+      hasMore,
+      oldestId: messages[0]?.id || null,
+      latestId: messages[messages.length - 1]?.id || null,
+    },
+  });
+}));
+
+// User: Kirim pesan ke CS
+app.post("/api/chat/messages", userOnly, uploadChat.single("attachment"), wrap(async (req, res) => {
+  const message = cleanHtml(req.body.message, 3000);
+  const attachment = req.file ? `/uploads/${req.file.filename}` : null;
+  if (!message && !attachment) {
+    return fail(res, 400, "Pesan atau lampiran tidak boleh kosong");
+  }
+  const [r] = await db.query(
+    "INSERT INTO chat_messages (user_id, sender_role, sender_id, message, attachment, is_read) VALUES (?, 'user', ?, ?, ?, 0)",
+    [req.user.id, req.user.id, message, attachment]
+  );
+  const [[created]] = await db.query("SELECT * FROM chat_messages WHERE id = ?", [r.insertId]);
+  ok(res, created, { message: "Pesan terkirim" }, 201);
+}));
+
+// User: Hitung unread dari admin
+app.get("/api/chat/unread", userOnly, wrap(async (req, res) => {
+  const [[{ count }]] = await db.query(
+    "SELECT COUNT(*) AS count FROM chat_messages WHERE user_id = ? AND sender_role = 'admin' AND is_read = 0",
+    [req.user.id]
+  );
+  ok(res, { unread: count });
+}));
+
+// Admin: Daftar percakapan pengguna
+app.get("/api/admin/chat/conversations", adminOnly, wrap(async (req, res) => {
+  const search = clean(req.query.search, 100);
+  let query = `
+    SELECT 
+      u.id AS user_id,
+      u.name,
+      u.username,
+      u.email,
+      u.phone,
+      u.avatar,
+      u.balance,
+      u.paylater_limit,
+      u.paylater_used,
+      m.last_message,
+      m.last_message_at,
+      m.last_sender_role,
+      COALESCE(un.unread_count, 0) AS unread_count
+    FROM users u
+    JOIN (
+      SELECT c1.user_id, c1.message AS last_message, c1.created_at AS last_message_at, c1.sender_role AS last_sender_role
+      FROM chat_messages c1
+      JOIN (
+        SELECT user_id, MAX(id) AS max_id FROM chat_messages GROUP BY user_id
+      ) c2 ON c1.id = c2.max_id
+    ) m ON u.id = m.user_id
+    LEFT JOIN (
+      SELECT user_id, COUNT(*) AS unread_count
+      FROM chat_messages
+      WHERE sender_role = 'user' AND is_read = 0
+      GROUP BY user_id
+    ) un ON u.id = un.user_id
+  `;
+  const params = [];
+  if (search) {
+    query += " WHERE u.name LIKE ? OR u.username LIKE ? OR u.phone LIKE ? OR m.last_message LIKE ?";
+    const s = `%${search}%`;
+    params.push(s, s, s, s);
+  }
+  query += " ORDER BY m.last_message_at DESC";
+  const [conversations] = await db.query(query, params);
+  ok(res, conversations);
+}));
+
+// Admin: Ambil pesan dari user tertentu (Limit 50 + Infinite scroll)
+app.get("/api/admin/chat/:userId/messages", adminOnly, wrap(async (req, res) => {
+  const userId = parseInt(req.params.userId);
+  if (!userId) return fail(res, 400, "User ID tidak valid");
+
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+  const beforeId = parseInt(req.query.beforeId) || null;
+  const afterId = parseInt(req.query.afterId) || null;
+
+  let query = "";
+  let params = [];
+
+  if (afterId) {
+    // Polling pesan baru
+    query = "SELECT id, user_id, sender_role, sender_id, message, attachment, is_read, created_at FROM chat_messages WHERE user_id = ? AND id > ? ORDER BY id ASC";
+    params = [userId, afterId];
+    const [messages] = await db.query(query, params);
+    if (messages.length > 0) {
+      await db.query(
+        "UPDATE chat_messages SET is_read = 1 WHERE user_id = ? AND sender_role = 'user' AND is_read = 0",
+        [userId]
+      );
+    }
+    return ok(res, messages, { hasMore: false });
+  }
+
+  if (beforeId) {
+    // Infinite scroll memuat pesan lebih lama (ke atas)
+    query = "SELECT id, user_id, sender_role, sender_id, message, attachment, is_read, created_at FROM chat_messages WHERE user_id = ? AND id < ? ORDER BY id DESC LIMIT ?";
+    params = [userId, beforeId, limit];
+  } else {
+    // Load awal: 50 pesan terakhir
+    query = "SELECT id, user_id, sender_role, sender_id, message, attachment, is_read, created_at FROM chat_messages WHERE user_id = ? ORDER BY id DESC LIMIT ?";
+    params = [userId, limit];
+  }
+
+  const [rows] = await db.query(query, params);
+  const messages = rows.reverse();
+
+  let hasMore = false;
+  if (messages.length > 0) {
+    const oldestId = messages[0].id;
+    const [[{ count }]] = await db.query(
+      "SELECT COUNT(*) AS count FROM chat_messages WHERE user_id = ? AND id < ?",
+      [userId, oldestId]
+    );
+    hasMore = count > 0;
+  }
+
+  // Tandai pesan dari user sudah dibaca oleh admin
+  await db.query(
+    "UPDATE chat_messages SET is_read = 1 WHERE user_id = ? AND sender_role = 'user' AND is_read = 0",
+    [userId]
+  );
+
+  ok(res, messages, {
+    hasMore,
+    pagination: {
+      limit,
+      hasMore,
+      oldestId: messages[0]?.id || null,
+      latestId: messages[messages.length - 1]?.id || null,
+    },
+  });
+}));
+
+// Admin: Balas pesan ke user tertentu
+app.post("/api/admin/chat/:userId/messages", adminOnly, uploadChat.single("attachment"), wrap(async (req, res) => {
+  const userId = parseInt(req.params.userId);
+  if (!userId) return fail(res, 400, "User ID tidak valid");
+  const message = cleanHtml(req.body.message, 3000);
+  const attachment = req.file ? `/uploads/${req.file.filename}` : null;
+  if (!message && !attachment) {
+    return fail(res, 400, "Pesan atau lampiran tidak boleh kosong");
+  }
+  const [r] = await db.query(
+    "INSERT INTO chat_messages (user_id, sender_role, sender_id, message, attachment, is_read) VALUES (?, 'admin', ?, ?, ?, 0)",
+    [userId, req.user.id, message, attachment]
+  );
+  const [[created]] = await db.query("SELECT * FROM chat_messages WHERE id = ?", [r.insertId]);
+  ok(res, created, { message: "Pesan terkirim" }, 201);
+}));
+
+// Admin: Total unread pesan masuk dari seluruh user
+app.get("/api/admin/chat/unread", adminOnly, wrap(async (req, res) => {
+  const [[{ count }]] = await db.query(
+    "SELECT COUNT(*) AS count FROM chat_messages WHERE sender_role = 'user' AND is_read = 0"
+  );
+  ok(res, { unread: count });
+}));
+
 /* ── Open API Wilayah Indonesia (wilayah.id) Proxy & In-Memory Cache ── */
 const WILAYAH_BASE = "https://wilayah.id/api";
 const wilayahCache = {
@@ -1091,6 +1410,9 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS paylater_applications (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
+        requested_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+        requested_tenor INT NOT NULL DEFAULT 12,
+        monthly_installment DECIMAL(18,2) NOT NULL DEFAULT 0,
         full_name VARCHAR(100) NULL,
         nik VARCHAR(20) NOT NULL,
         birth_place VARCHAR(100) NULL,
@@ -1132,6 +1454,9 @@ async function initDb() {
     `);
 
     const plAlterCols = [
+      "ALTER TABLE paylater_applications ADD COLUMN requested_amount DECIMAL(18,2) NOT NULL DEFAULT 0 AFTER user_id",
+      "ALTER TABLE paylater_applications ADD COLUMN requested_tenor INT NOT NULL DEFAULT 12 AFTER requested_amount",
+      "ALTER TABLE paylater_applications ADD COLUMN monthly_installment DECIMAL(18,2) NOT NULL DEFAULT 0 AFTER requested_tenor",
       "ALTER TABLE paylater_applications ADD COLUMN ktp_back_image VARCHAR(255) NULL AFTER ktp_image",
       "ALTER TABLE paylater_applications ADD COLUMN full_name VARCHAR(100) NULL AFTER user_id",
       "ALTER TABLE paylater_applications ADD COLUMN birth_place VARCHAR(100) NULL AFTER nik",
@@ -1368,6 +1693,23 @@ async function initDb() {
       `);
       console.log("Seeded initial app settings");
     }
+
+    /* ── Live Chat Messages Table ── */
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        sender_role ENUM('user','admin') NOT NULL,
+        sender_id INT NOT NULL,
+        message TEXT NOT NULL,
+        attachment VARCHAR(255) NULL,
+        is_read TINYINT(1) NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_chat_user_created (user_id, created_at),
+        INDEX idx_chat_unread (user_id, is_read),
+        CONSTRAINT fk_chat_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB;
+    `);
   } catch (err) {
     console.error("Database init error:", err.message);
   }

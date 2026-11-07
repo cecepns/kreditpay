@@ -21,6 +21,7 @@ export default function UserLayout() {
       <div className="min-h-screen bg-slate-100">
         <div className="relative mx-auto min-h-screen max-w-xl bg-white shadow-xl flex flex-col justify-between">
           <Outlet />
+          <HelpButton />
         </div>
       </div>
     );

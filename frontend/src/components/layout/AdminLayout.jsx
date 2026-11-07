@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, Outlet, Link } from "react-router-dom";
-import { Bell, Landmark, Layers, LayoutGrid, LogOut, Menu, Receipt, Smartphone, Users, X, FileText, Sparkles, Settings } from "lucide-react";
+import { Bell, Landmark, Layers, LayoutGrid, LogOut, Menu, Receipt, Smartphone, Users, X, FileText, Sparkles, Settings, MessagesSquare } from "lucide-react";
 import useAuth from "@/hooks/useAuth";
 import Logo from "@/components/Logo";
+import { API_ENDPOINTS } from "@/utils/endpoints";
+import { get } from "@/utils/request";
 
 const NAV = [
   { to: "/admin/dashboard", label: "Akses Cepat", icon: LayoutGrid },
+  { to: "/admin/chat", label: "Live Chat CS", icon: MessagesSquare },
   { to: "/admin/promos", label: "Info & Promo", icon: Sparkles },
   { to: "/admin/paylater", label: "Pengajuan PayLater", icon: FileText },
   { to: "/admin/levels", label: "Master Level", icon: Layers },
@@ -18,8 +21,20 @@ const NAV = [
 
 export default function AdminLayout() {
   const [open, setOpen] = useState(false);
+  const [unreadChat, setUnreadChat] = useState(0);
   const { user, logout } = useAuth();
   const link = (active) => `flex items-center gap-3 rounded-2xl px-4 py-3 font-bold transition ${active ? "bg-primary-700 text-white" : "text-slate-600 hover:bg-slate-100"}`;
+
+  useEffect(() => {
+    const fetchUnread = () => {
+      get(API_ENDPOINTS.ADMIN.CHAT.UNREAD)
+        .then((res) => setUnreadChat(res.data?.unread || 0))
+        .catch(() => {});
+    };
+    fetchUnread();
+    const timer = setInterval(fetchUnread, 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 lg:flex">
@@ -31,7 +46,15 @@ export default function AdminLayout() {
         </div>
         <nav className="flex-1 space-y-1">
           {NAV.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => link(isActive)}><Icon className="h-5 w-5" />{label}</NavLink>
+            <NavLink key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => link(isActive)}>
+              <Icon className="h-5 w-5" />
+              <span className="flex-1">{label}</span>
+              {to === "/admin/chat" && unreadChat > 0 && (
+                <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
+                  {unreadChat}
+                </span>
+              )}
+            </NavLink>
           ))}
         </nav>
         <div className="space-y-1 border-t border-slate-100 pt-4">

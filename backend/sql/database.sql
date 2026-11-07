@@ -2,6 +2,7 @@ CREATE DATABASE IF NOT EXISTS kreditpay CHARACTER SET utf8mb4 COLLATE utf8mb4_un
 USE kreditpay;
 
 DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS chat_messages;
 DROP TABLE IF EXISTS paylater_applications;
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS bank_accounts;
@@ -67,6 +68,9 @@ CREATE TABLE bank_accounts (
 CREATE TABLE paylater_applications (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
+  requested_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+  requested_tenor INT NOT NULL DEFAULT 12,
+  monthly_installment DECIMAL(18,2) NOT NULL DEFAULT 0,
   full_name VARCHAR(100) NULL,
   nik VARCHAR(20) NOT NULL,
   birth_place VARCHAR(100) NULL,
@@ -104,6 +108,20 @@ CREATE TABLE paylater_applications (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_pl_user (user_id),
   CONSTRAINT fk_pl_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE chat_messages (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  sender_role ENUM('user','admin') NOT NULL,
+  sender_id INT NOT NULL,
+  message TEXT NOT NULL,
+  attachment VARCHAR(255) NULL,
+  is_read TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_chat_user_created (user_id, created_at),
+  INDEX idx_chat_unread (user_id, is_read),
+  CONSTRAINT fk_chat_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE level_configs (

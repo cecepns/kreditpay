@@ -19,6 +19,8 @@ import {
   Camera,
   CreditCard,
   ChevronDown,
+  ChevronUp,
+  ClipboardList,
   Users,
   Receipt,
   BriefcaseMedical,
@@ -38,11 +40,52 @@ import {
   getVillages,
 } from "@/utils/wilayah";
 
+const LOAN_AMOUNT_OPTIONS = [
+  5000000,
+  10000000,
+  20000000,
+  50000000,
+  75000000,
+  100000000,
+  150000000,
+  200000000,
+  250000000,
+  300000000,
+  400000000,
+  500000000,
+];
+
+const TENOR_OPTIONS = [
+  { value: 3, label: "3 Bulan" },
+  { value: 6, label: "6 Bulan" },
+  { value: 9, label: "9 Bulan" },
+  { value: 12, label: "12 Bulan" },
+  { value: 18, label: "18 Bulan" },
+  { value: 24, label: "24 Bulan" },
+  { value: 36, label: "36 Bulan" },
+];
+
 export default function PayLaterApplication() {
   const navigate = useNavigate();
-  const [stage, setStage] = useState("aktivasi"); // "aktivasi" | "lengkapi_data" | "data_nasabah" | "data_tambahan"
+  const [stage, setStage] = useState("aktivasi"); // "aktivasi" | "simulasi" | "lengkapi_data" | "data_nasabah" | "data_tambahan"
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [application, setApplication] = useState(null);
+
+  // Simulasi Pinjaman states (Sesuai Referensi Gambar)
+  const [requestedAmount, setRequestedAmount] = useState(300000000);
+  const [requestedTenor, setRequestedTenor] = useState(12);
+  const [showRincian, setShowRincian] = useState(true);
+  const [openSyaratModal, setOpenSyaratModal] = useState(false);
+
+  // Perhitungan bunga flat 2% per tahun (0.1667% per bulan)
+  const calculateInstallment = (amount, tenor) => {
+    const annualInterestRate = 0.02;
+    const totalInterest = Math.round(amount * annualInterestRate * (tenor / 12));
+    const totalAmount = amount + totalInterest;
+    return Math.round(totalAmount / tenor);
+  };
+
+  const monthlyInstallment = calculateInstallment(requestedAmount, requestedTenor);
 
   // Open API Wilayah states
   const [provinces, setProvinces] = useState([]);
@@ -162,6 +205,8 @@ export default function PayLaterApplication() {
         if (res.data) {
           setApplication(res.data);
           setStage("lengkapi_data");
+          if (res.data.requested_amount) setRequestedAmount(Number(res.data.requested_amount));
+          if (res.data.requested_tenor) setRequestedTenor(Number(res.data.requested_tenor));
           setNasabahComplete(true);
           setPekerjaanComplete(true);
           setTambahanComplete(!!res.data.kk_image);
@@ -652,6 +697,9 @@ export default function PayLaterApplication() {
 
     setSubmitting(true);
     const form = new FormData();
+    form.append("requested_amount", requestedAmount);
+    form.append("requested_tenor", requestedTenor);
+    form.append("monthly_installment", monthlyInstallment);
     form.append("nik", formData.nik);
     form.append("full_name", formData.fullName);
     form.append("birth_place", formData.birth_place);
@@ -839,12 +887,160 @@ export default function PayLaterApplication() {
           {/* Tombol Lanjutkan (Toska) */}
           <button
             type="button"
-            onClick={() => setStage("lengkapi_data")}
+            onClick={() => setStage("simulasi")}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#00D1B2] py-4 text-base font-black text-white shadow-lg shadow-[#00D1B2]/30 transition hover:bg-[#00c4a7] active:scale-[0.98]"
           >
             Lanjutkan
             <ArrowRight className="h-5 w-5" />
           </button>
+        </div>
+      )}
+
+      {/* ── TAHAP 1.5: SIMULASI PINJAMAN (SESUAI GAMBAR REFERENSI USER) ── */}
+      {stage === "simulasi" && (
+        <div className="flex flex-col min-h-screen justify-between p-6 bg-slate-50">
+          <div className="space-y-4">
+            {/* Top Bar Navigasi */}
+            <div className="flex items-center gap-4 py-2">
+              <button
+                type="button"
+                onClick={() => setStage("aktivasi")}
+                className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-slate-700 shadow-sm hover:bg-slate-100 transition"
+                aria-label="Kembali"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <h1 className="text-xl font-black text-slate-900">Simulasi Pinjaman</h1>
+            </div>
+
+            {/* Kotak Utama: Pilih Pinjaman (Sesuai Screenshot Gambar 1 & 2) */}
+            <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-sm space-y-5">
+              <div className="space-y-1">
+                <h2 className="text-xl font-bold text-slate-800">Pilih Pinjaman</h2>
+                <p className="text-xs font-semibold text-slate-500">Klik Menu Dibawah Untuk Pilih :</p>
+              </div>
+
+              {/* Selector 1: Jumlah Pinjaman */}
+              <div className="relative pt-1">
+                <label className="absolute -top-2 left-3 bg-white px-2 text-[11px] font-bold text-slate-700 z-10">
+                  Jumlah Pinjaman
+                </label>
+                <div className="relative">
+                  <select
+                    value={requestedAmount}
+                    onChange={(e) => setRequestedAmount(Number(e.target.value))}
+                    className="w-full appearance-none rounded-xl border-2 border-slate-700 bg-white px-4 py-3.5 pr-10 text-sm font-black text-slate-800 shadow-xs focus:border-amber-600 focus:outline-none"
+                  >
+                    {LOAN_AMOUNT_OPTIONS.map((amt) => (
+                      <option key={amt} value={amt}>
+                        {formatRupiah(amt)}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-700" />
+                </div>
+              </div>
+
+              {/* Selector 2: Jangka Waktu */}
+              <div className="relative pt-1">
+                <label className="absolute -top-2 left-3 bg-white px-2 text-[11px] font-bold text-slate-700 z-10">
+                  Jangka Waktu
+                </label>
+                <div className="relative">
+                  <select
+                    value={requestedTenor}
+                    onChange={(e) => setRequestedTenor(Number(e.target.value))}
+                    className="w-full appearance-none rounded-xl border-2 border-slate-700 bg-white px-4 py-3.5 pr-10 text-sm font-black text-slate-800 shadow-xs focus:border-amber-600 focus:outline-none"
+                  >
+                    {TENOR_OPTIONS.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ClipboardList className="pointer-events-none absolute right-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-700" />
+                </div>
+              </div>
+
+              {/* Rincian Simulasi (Accordion / Expansion Sesuai Gambar 2) */}
+              <div className="pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowRincian(!showRincian)}
+                  className="flex items-center justify-center gap-1.5 w-full py-1 text-xs font-bold text-slate-600 hover:text-slate-800 transition"
+                >
+                  <ChevronUp
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      showRincian ? "" : "rotate-180"
+                    }`}
+                  />
+                  <span>Atur kembali jumlah pinjaman</span>
+                </button>
+
+                {showRincian && (
+                  <div className="mt-4 space-y-3 pt-1">
+                    <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
+                      <span className="text-slate-500">Total Pinjaman Diterima</span>
+                      <span className="font-bold text-slate-800">{formatRupiah(requestedAmount)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
+                      <span className="text-slate-500">Jumlah Pinjaman</span>
+                      <span className="font-bold text-slate-800">{formatRupiah(requestedAmount)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
+                      <span className="text-slate-500">Jangka Waktu</span>
+                      <span className="font-bold text-slate-800">{requestedTenor} Bulan</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
+                      <span className="text-slate-500">Biaya Administrasi</span>
+                      <span className="font-bold text-slate-800">Rp 0</span>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-4 text-center">
+                      <p className="text-xs text-slate-400 font-medium">Cicilan Bulanan Mulai Dari</p>
+                      <p className="text-3xl font-black text-[#1e3a8a] mt-1.5 tracking-tight">
+                        {formatRupiah(monthlyInstallment).replace("Rp ", "Rp.")}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Subtext */}
+              <p className="text-center text-xs font-semibold text-slate-500 pt-1">
+                Sesuaikan pinjaman dengan kebutuhanmu
+              </p>
+
+              {/* Tombol Lanjut (Warna Mustard/Gold Sesuai Screenshot) */}
+              <button
+                type="button"
+                onClick={() => setStage("lengkapi_data")}
+                className="w-full rounded-2xl bg-[#a07421] hover:bg-[#8e651a] py-4 text-base font-black text-white shadow-lg shadow-amber-900/20 transition active:scale-[0.98]"
+              >
+                Yuk, Lanjut
+              </button>
+
+              {/* Subtext di Bawah Tombol */}
+              <p className="text-center text-xs font-medium text-slate-500 -mt-2">
+                Cek Sekarang bunga Rendah loh!!
+              </p>
+
+              {/* Keterangan Persyaratan Minimum Link */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setOpenSyaratModal(true)}
+                className="flex items-center justify-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-800 cursor-pointer pt-2 select-none"
+              >
+                <span>Keterangan Persyaratan Minimum</span>
+                <Info className="h-4 w-4 text-slate-600" />
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-600" />
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -856,12 +1052,37 @@ export default function PayLaterApplication() {
             <div className="flex items-center gap-4 py-2">
               <button
                 type="button"
-                onClick={() => setStage("aktivasi")}
+                onClick={() => (application ? navigate("/app") : setStage("simulasi"))}
                 className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
               <h1 className="text-xl font-black text-slate-900">Lengkapi Data</h1>
+            </div>
+
+            {/* Banner Ringkasan Simulasi Pinjaman Terpilih */}
+            <div className="rounded-3xl border border-amber-200/80 bg-gradient-to-br from-amber-50/80 via-white to-amber-50/50 p-4 shadow-sm flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-[#a07421] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                    Pinjaman Terpilih
+                  </span>
+                  <span className="text-xs font-bold text-slate-600">{requestedTenor} Bulan</span>
+                </div>
+                <p className="text-lg font-black text-slate-900">{formatRupiah(requestedAmount)}</p>
+                <p className="text-xs font-semibold text-slate-500">
+                  Estimasi: <b className="text-[#1e3a8a]">{formatRupiah(monthlyInstallment)}/bln</b> (Bunga 2% p.a.)
+                </p>
+              </div>
+              {!application && (
+                <button
+                  type="button"
+                  onClick={() => setStage("simulasi")}
+                  className="rounded-2xl border border-amber-300 bg-white px-3.5 py-2 text-xs font-black text-amber-800 hover:bg-amber-100/70 shadow-xs transition"
+                >
+                  Ubah
+                </button>
+              )}
             </div>
 
             {/* Kotak Status Pengajuan & Roket */}
@@ -1918,6 +2139,41 @@ export default function PayLaterApplication() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal Keterangan Persyaratan Minimum */}
+      <Modal
+        open={openSyaratModal}
+        onClose={() => setOpenSyaratModal(false)}
+        title="Persyaratan Minimum PayLater"
+      >
+        <div className="space-y-4 text-xs font-medium text-slate-600">
+          <p className="text-sm font-bold text-slate-800">
+            Berikut adalah ketentuan dan kualifikasi minimum pengajuan PayLater KreditPay:
+          </p>
+          <ul className="space-y-2 list-disc pl-4 text-slate-700">
+            <li>Warga Negara Indonesia (WNI) berusia minimal 21 tahun dan maksimal 60 tahun saat pelunasan.</li>
+            <li>Memiliki e-KTP asli yang masih berlaku dan dapat difoto dengan jelas (depan dan belakang).</li>
+            <li>Memiliki pekerjaan tetap, usaha mandiri, atau sumber penghasilan aktif.</li>
+            <li>Melampirkan minimal 1 dokumen pendukung (Kartu Keluarga/Slip Gaji/NPWP/BPJS).</li>
+            <li>Memiliki nomor HP aktif dan kontak darurat kerabat yang dapat dihubungi.</li>
+            <li>
+              <b>Bunga Ringan:</b> 2% flat per tahun (0.16% per bulan), tanpa biaya tersembunyi.
+            </li>
+            <li>
+              <b>Biaya Administrasi:</b> Rp 0 (Bebas biaya admin pembukaan).
+            </li>
+            <li>Proses persetujuan limit kilat 1x24 jam kerja setelah formulir diverifikasi.</li>
+          </ul>
+          <div className="pt-2">
+            <Button
+              className="w-full bg-[#a07421] hover:bg-[#8e651a] text-white font-bold"
+              onClick={() => setOpenSyaratModal(false)}
+            >
+              Saya Mengerti
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

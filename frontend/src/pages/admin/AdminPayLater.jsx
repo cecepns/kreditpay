@@ -1,14 +1,14 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { Check, Eye, FileText, Search, X } from "lucide-react";
+import { Check, CheckCheck, Eye, FileText, Search, X, Loader2 } from "lucide-react";
 import useFetch from "@/hooks/useFetch";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/ui/StateViews";
 import { API_ENDPOINTS } from "@/utils/endpoints";
-import { put } from "@/utils/request";
-import { formatDateTime, formatRupiah, fileUrl } from "@/utils/format";
+import { put, post } from "@/utils/request";
+import { formatDateTime, formatRupiah, digitsOnly, fileUrl } from "@/utils/format";
 
 export default function AdminPayLater() {
   const [page, setPage] = useState(1);
@@ -23,6 +23,70 @@ export default function AdminPayLater() {
   const [selectedApp, setSelectedApp] = useState(null);
   const [approvedLimit, setApprovedLimit] = useState(50000000);
   const [processing, setProcessing] = useState(false);
+
+  // Bulk Approval States
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [openBulkModal, setOpenBulkModal] = useState(false);
+  const [bulkMode, setBulkMode] = useState("all_pending"); // "all_pending" | "selected"
+  const [bulkLimit, setBulkLimit] = useState(50000000);
+  const [processingBulk, setProcessingBulk] = useState(false);
+
+  const pendingOnPage = data?.data?.filter((item) => item.status === "pending") || [];
+  const isAllPendingSelected =
+    pendingOnPage.length > 0 &&
+    pendingOnPage.every((item) => selectedIds.includes(item.id));
+
+  const toggleSelectAll = () => {
+    if (isAllPendingSelected) {
+      const pendingIds = pendingOnPage.map((p) => p.id);
+      setSelectedIds((prev) => prev.filter((id) => !pendingIds.includes(id)));
+    } else {
+      const newIds = pendingOnPage.map((p) => p.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...newIds])));
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkApprove = async () => {
+    setProcessingBulk(true);
+    try {
+      const payload = {
+        all_pending: bulkMode === "all_pending",
+        ids: bulkMode === "selected" ? selectedIds : undefined,
+        default_limit: bulkLimit,
+      };
+      const res = await post(API_ENDPOINTS.ADMIN.PAYLATER.BULK_APPROVE, payload);
+      toast.success(res.message || "Pengajuan PayLater berhasil disetujui sekaligus!");
+      setOpenBulkModal(false);
+      setSelectedIds([]);
+      reload();
+    } catch (err) {
+      toast.error(err.message || "Gagal menyetujui pengajuan secara massal");
+    } finally {
+      setProcessingBulk(false);
+    }
+  };
+
+  const handleBulkReject = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Yakin ingin menolak ${selectedIds.length} pengajuan terpilih?`)) return;
+    setProcessingBulk(true);
+    try {
+      const res = await post(API_ENDPOINTS.ADMIN.PAYLATER.BULK_REJECT, { ids: selectedIds });
+      toast.success(res.message || "Pengajuan terpilih berhasil ditolak");
+      setSelectedIds([]);
+      reload();
+    } catch (err) {
+      toast.error(err.message || "Gagal menolak pengajuan");
+    } finally {
+      setProcessingBulk(false);
+    }
+  };
 
   const handleUpdateStatus = async (appId, newStatus) => {
     setProcessing(true);
@@ -49,6 +113,19 @@ export default function AdminPayLater() {
           <p className="text-xs font-semibold text-slate-500">
             Kelola verifikasi berkas dan aktivasi limit PayLater pengguna.
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="solid"
+            icon={CheckCheck}
+            onClick={() => {
+              setBulkMode("all_pending");
+              setOpenBulkModal(true);
+            }}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-black shadow-md shadow-emerald-600/20"
+          >
+            ACC Semua Pending
+          </Button>
         </div>
       </div>
 
@@ -91,6 +168,50 @@ export default function AdminPayLater() {
 
       {/* Tabel Pengajuan */}
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 space-y-4">
+        {/* Banner Aksi Seleksi Massal */}
+        {selectedIds.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-600 text-white font-black text-[11px]">
+                {selectedIds.length}
+              </span>
+              <span className="font-extrabold text-emerald-950">
+                pengajuan dipilih
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="solid"
+                icon={Check}
+                onClick={() => {
+                  setBulkMode("selected");
+                  setOpenBulkModal(true);
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+              >
+                ACC Terpilih ({selectedIds.length})
+              </Button>
+              <Button
+                size="sm"
+                variant="soft"
+                onClick={handleBulkReject}
+                disabled={processingBulk}
+                className="text-rose-700 hover:bg-rose-100 font-bold"
+              >
+                Tolak Terpilih
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectedIds([])}
+              >
+                Batal
+              </Button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <ListSkeleton rows={4} />
         ) : error ? (
@@ -106,8 +227,19 @@ export default function AdminPayLater() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-slate-100 text-xs font-extrabold uppercase text-slate-400">
                 <tr>
-                  <th className="pb-3 pl-2">Pengguna</th>
+                  <th className="pb-3 pl-2 w-10">
+                    <input
+                      type="checkbox"
+                      checked={isAllPendingSelected}
+                      onChange={toggleSelectAll}
+                      disabled={pendingOnPage.length === 0}
+                      className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 cursor-pointer disabled:cursor-not-allowed"
+                      title="Pilih semua pengajuan pending di halaman ini"
+                    />
+                  </th>
+                  <th className="pb-3">Pengguna</th>
                   <th className="pb-3">NIK &amp; Pekerjaan</th>
+                  <th className="pb-3">Pinjaman Diajukan</th>
                   <th className="pb-3">Gaji Bulanan</th>
                   <th className="pb-3">Tanggal Pengajuan</th>
                   <th className="pb-3">Status</th>
@@ -116,14 +248,36 @@ export default function AdminPayLater() {
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold">
                 {data.data.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/60">
+                  <tr
+                    key={item.id}
+                    className={`hover:bg-slate-50/60 transition ${
+                      selectedIds.includes(item.id) ? "bg-emerald-50/40" : ""
+                    }`}
+                  >
                     <td className="py-3.5 pl-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(item.id)}
+                        onChange={() => toggleSelect(item.id)}
+                        disabled={item.status !== "pending"}
+                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                      />
+                    </td>
+                    <td className="py-3.5">
                       <p className="font-extrabold text-slate-800">{item.user_name || item.username}</p>
                       <p className="text-xs text-slate-400">@{item.username} · {item.user_phone}</p>
                     </td>
                     <td className="py-3.5">
                       <p className="font-bold text-slate-800 font-mono text-xs">{item.nik}</p>
                       <p className="text-xs text-slate-500">{item.job_type} · {item.company_name}</p>
+                    </td>
+                    <td className="py-3.5">
+                      <p className="font-extrabold text-amber-700 text-xs">
+                        {item.requested_amount > 0 ? formatRupiah(item.requested_amount) : "-"}
+                      </p>
+                      {item.requested_tenor > 0 && (
+                        <p className="text-[10px] text-slate-400 font-semibold">{item.requested_tenor} Bulan</p>
+                      )}
                     </td>
                     <td className="py-3.5 text-xs font-black text-slate-700">
                       {formatRupiah(item.monthly_income)}
@@ -151,7 +305,7 @@ export default function AdminPayLater() {
                         icon={Eye}
                         onClick={() => {
                           setSelectedApp(item);
-                          setApprovedLimit(50000000);
+                          setApprovedLimit(item.requested_amount > 0 ? Number(item.requested_amount) : 50000000);
                         }}
                       >
                         Detail
@@ -173,6 +327,36 @@ export default function AdminPayLater() {
       >
         {selectedApp && (
           <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+            {/* Pilihan Simulasi Pinjaman */}
+            {selectedApp.requested_amount > 0 && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-amber-800">
+                    Simulasi Pinjaman Terpilih
+                  </h4>
+                  <span className="rounded-full bg-amber-200/80 px-2.5 py-0.5 text-[10px] font-black text-amber-900">
+                    Tenor {selectedApp.requested_tenor || 12} Bulan
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <span className="text-slate-400 font-bold block">Pinjaman Diajukan:</span>
+                    <p className="font-black text-amber-700 text-sm">{formatRupiah(selectedApp.requested_amount)}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-bold block">Jangka Waktu:</span>
+                    <p className="font-bold text-slate-800">{selectedApp.requested_tenor || 12} Bulan</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-bold block">Estimasi Cicilan:</span>
+                    <p className="font-black text-[#1e3a8a] text-sm">
+                      {formatRupiah(selectedApp.monthly_installment || Math.round((selectedApp.requested_amount * (1 + 0.02 * ((selectedApp.requested_tenor || 12) / 12))) / (selectedApp.requested_tenor || 12)))}/bln
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Bagian Data Nasabah */}
             <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 space-y-2">
               <h4 className="text-xs font-black uppercase tracking-wider text-primary-700">
@@ -515,6 +699,65 @@ export default function AdminPayLater() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Modal Konfirmasi ACC Semua / Terpilih */}
+      <Modal
+        open={openBulkModal}
+        onClose={() => !processingBulk && setOpenBulkModal(false)}
+        title="Persetujuan Massal (ACC Sekaligus)"
+      >
+        <div className="space-y-4 text-xs font-semibold text-slate-700">
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-amber-900 space-y-1.5">
+            <p className="font-black text-sm flex items-center gap-2">
+              <CheckCheck className="h-5 w-5 text-emerald-600" />
+              {bulkMode === "all_pending"
+                ? "Konfirmasi ACC Seluruh Pengajuan Pending"
+                : `Konfirmasi ACC ${selectedIds.length} Pengajuan Terpilih`}
+            </p>
+            <p className="text-xs font-medium text-amber-800 leading-relaxed">
+              {bulkMode === "all_pending"
+                ? "Sistem akan secara otomatis menyetujui seluruh pengajuan PayLater yang berstatus Menunggu Verifikasi di database tanpa perlu membuka satu per satu."
+                : `Sistem akan menyetujui ${selectedIds.length} pengajuan yang telah Anda pilih sekaligus.`}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-slate-700">
+              Limit Standar Fallback (Rp)
+            </label>
+            <input
+              type="text"
+              className="w-full rounded-2xl border border-slate-200 p-3 text-xs sm:text-sm font-semibold text-slate-800 focus:border-primary-600 focus:outline-none"
+              value={formatRupiah(bulkLimit)}
+              onChange={(e) => setBulkLimit(Number(digitsOnly(e.target.value)) || 0)}
+              placeholder="Rp 50.000.000"
+            />
+            <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+              *Catatan: Pemohon yang telah memilih nominal pinjaman saat simulasi akan otomatis mendapatkan limit sesuai nominal yang diajukan masing-masing. Limit standar di atas hanya digunakan jika pemohon tidak memilih nominal pinjaman.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setOpenBulkModal(false)}
+              disabled={processingBulk}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              icon={processingBulk ? Loader2 : CheckCheck}
+              onClick={handleBulkApprove}
+              disabled={processingBulk}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black shadow-md shadow-emerald-600/20"
+            >
+              {processingBulk ? "Memproses..." : "Ya, ACC Sekarang"}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

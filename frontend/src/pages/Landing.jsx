@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Rocket, ShieldCheck, Timer, Wallet } from "lucide-react";
+import { Rocket, ShieldCheck, Timer, Wallet, ArrowRight } from "lucide-react";
 import Logo from "@/components/Logo";
 import FloatingInstallButton from "@/components/FloatingInstallButton";
 import useAuth from "@/hooks/useAuth";
@@ -17,10 +17,16 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-indigo-50/60 font-display">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <Logo />
-        <Link to={home} className="rounded-full border-2 border-primary-500 px-7 py-2.5 font-semibold text-primary-600 transition hover:bg-primary-50">
-          {user ? "Buka Aplikasi" : "Masuk"}
+      <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 py-4 sm:py-6">
+        <Link to="/" className="shrink-0 transition hover:opacity-95">
+          <Logo />
+        </Link>
+        <Link
+          to={home}
+          className="inline-flex items-center justify-center gap-1.5 rounded-full border-2 border-primary-600 bg-white px-3.5 py-1.5 sm:px-6 sm:py-2.5 text-xs sm:text-sm font-black text-primary-700 shadow-xs transition hover:bg-primary-50 active:scale-95 shrink-0"
+        >
+          <span>{user ? "Buka Aplikasi" : "Masuk"}</span>
+          <ArrowRight className="h-3.5 w-3.5 text-primary-600" />
         </Link>
       </header>
 
@@ -35,8 +41,38 @@ export default function Landing() {
             Nikmati kemudahan transaksi tanpa kartu kredit bersama <b className="text-slate-700">KreditPay</b>. Limit hingga <b className="text-slate-700">Rp 200.000.000</b>.
           </p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
-            <Link to="/register" className="w-full rounded-2xl bg-primary-700 px-8 py-4 text-center font-semibold text-white shadow-lg shadow-primary-700/30 transition hover:bg-primary-800 sm:w-auto">Daftar Sekarang</Link>
-            <Link to="/login" className="w-full rounded-2xl px-8 py-4 text-center font-semibold text-primary-700 transition hover:bg-primary-50 sm:w-auto">Sudah punya akun</Link>
+            {user ? (
+              <>
+                <Link
+                  to={home}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-700 px-8 py-4 text-center font-bold text-white shadow-lg shadow-primary-700/30 transition hover:bg-primary-800 active:scale-95"
+                >
+                  <span>Buka Dashboard Aplikasi</span>
+                  <ArrowRight className="h-5 w-5" />
+                </Link>
+                <Link
+                  to="/app/akun"
+                  className="w-full sm:w-auto rounded-2xl px-6 py-4 text-center font-bold text-slate-700 transition hover:bg-slate-100"
+                >
+                  Akun ({user.name})
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/register"
+                  className="w-full sm:w-auto rounded-2xl bg-primary-700 px-8 py-4 text-center font-bold text-white shadow-lg shadow-primary-700/30 transition hover:bg-primary-800"
+                >
+                  Daftar Sekarang
+                </Link>
+                <Link
+                  to="/login"
+                  className="w-full sm:w-auto rounded-2xl px-8 py-4 text-center font-bold text-primary-700 transition hover:bg-primary-50"
+                >
+                  Sudah punya akun
+                </Link>
+              </>
+            )}
           </div>
         </div>
 

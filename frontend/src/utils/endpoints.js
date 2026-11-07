@@ -29,6 +29,10 @@ export const API_ENDPOINTS = {
   SETTINGS: {
     PUBLIC: "/settings/public",
   },
+  CHAT: {
+    MESSAGES: "/chat/messages",
+    UNREAD: "/chat/unread",
+  },
   WILAYAH: {
     PROVINCES: "/wilayah/provinces",
     REGENCIES: (provinceCode) => `/wilayah/regencies/${provinceCode}`,
@@ -52,6 +56,8 @@ export const API_ENDPOINTS = {
     PAYLATER: {
       LIST: "/admin/paylater",
       STATUS: (id) => `/admin/paylater/${id}/status`,
+      BULK_APPROVE: "/admin/paylater/bulk-approve",
+      BULK_REJECT: "/admin/paylater/bulk-reject",
     },
     PROMOS: {
       LIST: "/admin/promos",
@@ -61,6 +67,11 @@ export const API_ENDPOINTS = {
     SETTINGS: {
       GET: "/admin/settings",
       UPDATE: "/admin/settings",
+    },
+    CHAT: {
+      CONVERSATIONS: "/admin/chat/conversations",
+      MESSAGES: (userId) => `/admin/chat/${userId}/messages`,
+      UNREAD: "/admin/chat/unread",
     },
   },
 };
