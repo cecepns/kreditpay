@@ -92,7 +92,26 @@ CALL AddColumnIfNotExists('transactions', 'proof', 'VARCHAR(255) NULL AFTER targ
 ALTER TABLE level_configs MODIFY COLUMN title TEXT NOT NULL;
 
 -- -------------------------------------------------------------------
--- 5. Bersihkan Stored Procedure Sementara
+-- 5. Hapus notifikasi generic lama ('Halo semua') dan buat notifikasi
+--    sapaan personal sesuai nama dan jam pendaftaran akun masing-masing
+-- -------------------------------------------------------------------
+DELETE FROM notifications WHERE user_id IS NULL AND title = 'Halo semua';
+
+INSERT INTO notifications (user_id, title, body, created_at)
+SELECT 
+  u.id,
+  CONCAT('Halo ', u.name),
+  CONCAT('Selamat datang di KreditPay! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.'),
+  u.created_at
+FROM users u
+WHERE u.role = 'user'
+  AND NOT EXISTS (
+    SELECT 1 FROM notifications n 
+    WHERE n.user_id = u.id AND n.title LIKE 'Halo%'
+  );
+
+-- -------------------------------------------------------------------
+-- 6. Bersihkan Stored Procedure Sementara
 -- -------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS AddColumnIfNotExists;
 DROP PROCEDURE IF EXISTS AddIndexIfNotExists;

@@ -186,8 +186,8 @@ INSERT INTO level_configs (level, name, badge_label, title, subtitle, message, n
 (6, 'Level 6', 'Pengembangan 2', 'Transfer Saldo <br><span class=\"text-teal-400\">PayLater Sedang Proses</span>', 'PINDAH SALDO', 'Permintaan pemindahan limit PayLater ke Saldo Utama Anda sedang diproses oleh sistem.', 'Silakan lakukan konfirmasi pemindahan saldo untuk melanjutkan transaksi.', 'Pindahkan Saldo', 'Batal', 'Rincian Perpindahan', '{\"fee_warning\":\"Perpindahan Saldo PayLater ke Saldo utama membutuhkan Dana Layanan. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.\\n\\nDana Layanan ini Akan Tetap Masuk ke Saldo Anda, tidak diambil perusahaan.\",\"fee_amount\":100000}'),
 (7, 'Level 7', 'Fitur VIP/Prioritas', 'Transfer Saldo <br><span class=\"text-teal-400\">PayLater Sedang Proses</span>', 'PINDAH SALDO', 'Permintaan pemindahan limit PayLater ke Saldo Utama Anda sedang diproses oleh sistem.', 'Silakan lakukan konfirmasi pemindahan saldo untuk melanjutkan transaksi.', 'Pindahkan Saldo', 'Batal', 'Rincian Perpindahan', '{\"fee_warning\":\"Perpindahan Saldo PayLater ke Saldo utama membutuhkan Dana Layanan. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.\\n\\nDana Layanan ini Akan Tetap Masuk ke Saldo Anda, tidak diambil perusahaan.\",\"fee_amount\":100000}');
 
-INSERT INTO notifications (title, body) VALUES
-('Halo semua', 'Selamat datang di KreditPay! Nikmati kemudahan bertransaksi dengan PayLater hingga Rp 200.000.000.');
+INSERT INTO notifications (user_id, title, body, created_at) VALUES
+(2, 'Halo Chrisbayu', 'Selamat datang di KreditPay! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.', '2026-11-07 10:00:00');
 
 -- Sample data promos
 INSERT INTO promos (tag, title, description, style, is_active, sort_order) VALUES

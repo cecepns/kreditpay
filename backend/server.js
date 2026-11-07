@@ -181,6 +181,21 @@ app.post("/api/auth/register", wrap(async (req, res) => {
     [data.name, data.username, data.email, data.phone, hash]
   );
   const user = await findUser(r.insertId);
+
+  // Buat notifikasi personal selamat datang sesuai jam pendaftaran user
+  try {
+    await db.query(
+      "INSERT INTO notifications (user_id, title, body, created_at) VALUES (?, ?, ?, NOW())",
+      [
+        user.id,
+        `Halo ${data.name}`,
+        `Selamat datang di KreditPay! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.`
+      ]
+    );
+  } catch (err) {
+    console.warn("Failed to create welcome notification:", err.message);
+  }
+
   ok(res, { token: sign(user), user }, { message: "Pendaftaran berhasil" }, 201);
 }));
 
@@ -677,10 +692,22 @@ app.post("/api/admin/users", adminOnly, wrap(async (req, res) => {
   if (error) return fail(res, 400, error);
   const x = adminUserExtras(req.body);
   const hash = await bcrypt.hash(data.pin, 10);
-  await db.query(
+  const [r] = await db.query(
     "INSERT INTO users (name,username,email,phone,pin_hash,role,level,balance,paylater_limit) VALUES (?,?,?,?,?,?,?,?,?)",
     [data.name, data.username, data.email, data.phone, hash, x.role, x.level, x.balance, x.paylater_limit]
   );
+  if (x.role === "user") {
+    try {
+      await db.query(
+        "INSERT INTO notifications (user_id, title, body, created_at) VALUES (?, ?, ?, NOW())",
+        [
+          r.insertId,
+          `Halo ${data.name}`,
+          `Selamat datang di KreditPay! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.`
+        ]
+      );
+    } catch {}
+  }
   ok(res, null, { message: "Pengguna ditambahkan" }, 201);
 }));
 
@@ -1441,6 +1468,27 @@ async function initDb() {
       await db.query("ALTER TABLE notifications ADD INDEX idx_notif_user (user_id)");
     } catch {
       // Index user_id sudah ada
+    }
+
+    // Bersihkan notifikasi generic lama dan backfill notifikasi sapaan personal sesuai jam pendaftaran
+    try {
+      await db.query("DELETE FROM notifications WHERE user_id IS NULL AND title = 'Halo semua'");
+      await db.query(`
+        INSERT INTO notifications (user_id, title, body, created_at)
+        SELECT 
+          u.id,
+          CONCAT('Halo ', u.name),
+          CONCAT('Selamat datang di KreditPay! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.'),
+          u.created_at
+        FROM users u
+        WHERE u.role = 'user'
+          AND NOT EXISTS (
+            SELECT 1 FROM notifications n 
+            WHERE n.user_id = u.id AND n.title LIKE 'Halo%'
+          )
+      `);
+    } catch {
+      // ignore
     }
 
     try {

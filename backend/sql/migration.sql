@@ -157,4 +157,23 @@ PREPARE st_fk FROM @sql_fk; EXECUTE st_fk; DEALLOCATE PREPARE st_fk;
 -- -------------------------------------------------------------------
 ALTER TABLE level_configs MODIFY COLUMN title TEXT NOT NULL;
 
+-- -------------------------------------------------------------------
+-- 7. Bersihkan notifikasi generic lama dan buat notifikasi personal
+-- -------------------------------------------------------------------
+DELETE FROM notifications WHERE user_id IS NULL AND title = 'Halo semua';
+
+INSERT INTO notifications (user_id, title, body, created_at)
+SELECT 
+  u.id,
+  CONCAT('Halo ', u.name),
+  CONCAT('Selamat datang di KreditPay! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.'),
+  u.created_at
+FROM users u
+WHERE u.role = 'user'
+  AND NOT EXISTS (
+    SELECT 1 FROM notifications n 
+    WHERE n.user_id = u.id AND n.title LIKE 'Halo%'
+  );
+
+
 
