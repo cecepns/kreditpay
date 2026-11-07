@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   Zap,
   Calendar,
+  Calculator,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
