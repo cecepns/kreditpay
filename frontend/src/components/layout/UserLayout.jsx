@@ -5,6 +5,7 @@ import useFetch from "@/hooks/useFetch";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import BottomNav from "@/components/layout/BottomNav";
 import HelpButton from "@/components/layout/HelpButton";
+import VerifiedBadge from "@/components/ui/VerifiedBadge";
 
 const TITLES = { "/app/riwayat": "Riwayat Transaksi", "/app/notifikasi": "Notifikasi", "/app/akun": "Akun Saya" };
 
@@ -34,7 +35,10 @@ export default function UserLayout() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-white/80">Selamat Datang,</p>
-              <h1 className="text-xl font-extrabold uppercase tracking-wide">{user.name}</h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <h1 className="text-xl font-extrabold uppercase tracking-wide">{user.name}</h1>
+                {Number(user?.level ?? 1) >= 2 && <VerifiedBadge size="sm" />}
+              </div>
             </div>
             <Link to="/app/notifikasi" aria-label="Notifikasi" className="relative grid h-12 w-12 place-items-center rounded-2xl bg-white/15">
               <Bell className="h-6 w-6" fill="currentColor" />

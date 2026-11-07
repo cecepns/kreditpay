@@ -214,6 +214,7 @@ app.get("/api/dashboard", userOnly, wrap(async (req, res) => {
   ok(res, {
     balance: user.balance,
     paylater: { limit: user.paylater_limit, used: user.paylater_used, available: user.paylater_limit - user.paylater_used },
+    level: user.level,
     notifications: total,
   });
 }));
@@ -497,7 +498,10 @@ app.put("/api/admin/paylater/:id/status", adminOnly, wrap(async (req, res) => {
 
     await c.query("UPDATE paylater_applications SET status=? WHERE id=?", [status, req.params.id]);
     if (status === "approved") {
-      await c.query("UPDATE users SET paylater_limit=? WHERE id=?", [limitAmount, appRow.user_id]);
+      await c.query(
+        "UPDATE users SET paylater_limit=?, level=CASE WHEN level < 2 THEN 2 ELSE level END WHERE id=?",
+        [limitAmount, appRow.user_id]
+      );
     }
   });
 
@@ -535,7 +539,10 @@ app.post("/api/admin/paylater/bulk-approve", adminOnly, wrap(async (req, res) =>
     for (const app of applications) {
       const limitToSet = app.requested_amount > 0 ? Number(app.requested_amount) : fallbackLimit;
       await c.query("UPDATE paylater_applications SET status = 'approved' WHERE id = ?", [app.id]);
-      await c.query("UPDATE users SET paylater_limit = ? WHERE id = ?", [limitToSet, app.user_id]);
+      await c.query(
+        "UPDATE users SET paylater_limit = ?, level = CASE WHEN level < 2 THEN 2 ELSE level END WHERE id = ?",
+        [limitToSet, app.user_id]
+      );
     }
   });
 

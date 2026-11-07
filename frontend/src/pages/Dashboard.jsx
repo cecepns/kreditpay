@@ -28,7 +28,7 @@ export default function Dashboard() {
 
   const promos = (promosData?.data && promosData.data.length > 0) ? promosData.data : PROMOS;
 
-  const userLevel = Number(user?.level ?? 1);
+  const userLevel = Number(data?.data?.level ?? user?.level ?? 1);
 
   const handleTransfer = () => {
     if (userLevel === 1) {

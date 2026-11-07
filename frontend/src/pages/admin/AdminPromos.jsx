@@ -86,12 +86,13 @@ export default function AdminPromos() {
         is_active: Number(values.is_active),
       };
 
+      toast.dismiss();
       if (modal.mode === "edit") {
         const res = await put(E.DETAIL(modal.item.id), payload);
-        toast.success(res.message || "Promo berhasil diperbarui");
+        toast.success(res.message || "Promo berhasil diperbarui", { duration: 2500 });
       } else {
         const res = await post(E.CREATE, payload);
-        toast.success(res.message || "Promo berhasil ditambahkan");
+        toast.success(res.message || "Promo berhasil ditambahkan", { duration: 2500 });
       }
       closeModal();
       list.reload();

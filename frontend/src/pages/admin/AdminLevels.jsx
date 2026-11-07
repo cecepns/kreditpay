@@ -180,7 +180,8 @@ export default function AdminLevels() {
       };
 
       const res = await put(API_ENDPOINTS.LEVELS.UPDATE(editingLevel.level), payload);
-      toast.success(res.message || `Pengaturan Level ${editingLevel.level} berhasil disimpan`);
+      toast.dismiss();
+      toast.success(res.message || `Pengaturan Level ${editingLevel.level} berhasil disimpan`, { duration: 2500 });
       setEditingLevel(null);
       reloadLevels();
     } catch (err) {
@@ -579,53 +580,35 @@ export default function AdminLevels() {
                 {savingLevel ? "Menyimpan..." : "Simpan Perubahan"}
               </button>
             </div>
-          ) : (
-            /* TAMPILAN EDITOR LEVEL 1, 2, 3 */
+          ) : editingLevel?.level === 1 ? (
+            /* TAMPILAN KHUSUS LEVEL 1 (Hanya field yang aktif di UI Pop-up Level 1) */
             <div className="space-y-4">
-              <p className="text-xs font-semibold text-slate-500">
-                Sesuaikan judul, pesan peringatan, dan teks tombol yang akan tampil pada layar pengguna ketika berada di level ini.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Input
-                  label="Judul Utama"
-                  value={editForm.title}
-                  onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="Contoh: Transfer ke Rekening / Fitur Terkunci"
-                  required
-                />
-                <Input
-                  label="Subjudul / Status Highlight"
-                  value={editForm.subtitle}
-                  onChange={(e) => setEditForm((f) => ({ ...f, subtitle: e.target.value }))}
-                  placeholder="Contoh: ANDA TERTUNDA / Info Autodebet"
-                />
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-3.5 text-xs text-blue-900">
+                <p className="font-bold">Pengaturan Pop-up Level 1 (Fitur Terkunci)</p>
+                <p className="text-blue-700/80 mt-0.5">
+                  Teks ini muncul saat pengguna level 1 mencoba melakukan transaksi atau transfer.
+                </p>
               </div>
+
+              <Input
+                label="Judul Pop-up"
+                value={editForm.title}
+                onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Contoh: Fitur Terkunci"
+                required
+              />
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Pesan / Penjelasan Utama Pop-up <span className="text-red-500">*</span>
+                  Pesan / Penjelasan Pop-up <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows={3}
                   className="w-full rounded-2xl border border-slate-200 p-3 text-xs sm:text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                   value={editForm.message}
                   onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))}
-                  placeholder="Pesan yang menjelaskan status akun atau fitur..."
+                  placeholder="Contoh: Maaf, Anda masih berada di Level 1. Silakan Top Up saldo untuk membuka fitur ini."
                   required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Catatan / Peringatan Keamanan
-                </label>
-                <textarea
-                  rows={2}
-                  className="w-full rounded-2xl border border-slate-200 p-3 text-xs sm:text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
-                  value={editForm.note}
-                  onChange={(e) => setEditForm((f) => ({ ...f, note: e.target.value }))}
-                  placeholder="Catatan tambahan di kotak info..."
                 />
               </div>
 
@@ -634,7 +617,142 @@ export default function AdminLevels() {
                   label="Teks Tombol Utama"
                   value={editForm.button_text}
                   onChange={(e) => setEditForm((f) => ({ ...f, button_text: e.target.value }))}
-                  placeholder="Contoh: Cek Detail Keterangan / Top Up Sekarang"
+                  placeholder="Contoh: Top Up Sekarang"
+                  required
+                />
+                <Input
+                  label="Teks Tombol Kedua"
+                  value={editForm.secondary_button_text}
+                  onChange={(e) => setEditForm((f) => ({ ...f, secondary_button_text: e.target.value }))}
+                  placeholder="Contoh: Kembali"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button type="button" variant="ghost" onClick={() => setEditingLevel(null)}>
+                  Batal
+                </Button>
+                <Button type="submit" loading={savingLevel}>
+                  Simpan Pengaturan
+                </Button>
+              </div>
+            </div>
+          ) : editingLevel?.level === 2 ? (
+            /* TAMPILAN KHUSUS LEVEL 2 (Hanya field yang aktif di UI Pop-up Level 2) */
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-3.5 text-xs text-blue-900">
+                <p className="font-bold">Pengaturan Pop-up Level 2 (Autodebet)</p>
+                <p className="text-blue-700/80 mt-0.5">
+                  Teks ini muncul saat pengguna level 2 mencoba transfer ke rekening.
+                </p>
+              </div>
+
+              <Input
+                label="Judul Pop-up"
+                value={editForm.title}
+                onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Contoh: Rekening Belum Terintegrasi Autodebet"
+                required
+              />
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Pesan / Penjelasan Autodebet <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  className="w-full rounded-2xl border border-slate-200 p-3 text-xs sm:text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                  value={editForm.message}
+                  onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))}
+                  placeholder="Contoh: Autodebet adalah sistem pembayaran otomatis yang memungkinkan saldo Anda terpotong langsung..."
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Catatan / Peringatan Keamanan (Kotak Info)
+                </label>
+                <textarea
+                  rows={2}
+                  className="w-full rounded-2xl border border-slate-200 p-3 text-xs sm:text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                  value={editForm.note}
+                  onChange={(e) => setEditForm((f) => ({ ...f, note: e.target.value }))}
+                  placeholder="Contoh: Fitur ini wajib diaktifkan demi keamanan dan kelancaran transaksi Anda."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Teks Tombol Utama"
+                  value={editForm.button_text}
+                  onChange={(e) => setEditForm((f) => ({ ...f, button_text: e.target.value }))}
+                  placeholder="Contoh: Lanjutkan Integrasi"
+                  required
+                />
+                <Input
+                  label="Teks Tombol Kedua"
+                  value={editForm.secondary_button_text}
+                  onChange={(e) => setEditForm((f) => ({ ...f, secondary_button_text: e.target.value }))}
+                  placeholder="Contoh: Kembali"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button type="button" variant="ghost" onClick={() => setEditingLevel(null)}>
+                  Batal
+                </Button>
+                <Button type="submit" loading={savingLevel}>
+                  Simpan Pengaturan
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* TAMPILAN KHUSUS LEVEL 3 (Hanya field yang aktif di UI Pop-up Level 3) */
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-3.5 text-xs text-amber-900">
+                <p className="font-bold">Pengaturan Layar Level 3 (Transfer Tertunda &amp; Asuransi)</p>
+                <p className="text-amber-700/80 mt-0.5">
+                  Teks ini muncul saat pengguna level 3 mencoba transfer (Layar Peringatan Tertunda &amp; Layar Detail Ketentuan).
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Judul Utama"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="Contoh: Transfer ke Rekening"
+                  required
+                />
+                <Input
+                  label="Status Highlight"
+                  value={editForm.subtitle}
+                  onChange={(e) => setEditForm((f) => ({ ...f, subtitle: e.target.value }))}
+                  placeholder="Contoh: ANDA TERTUNDA"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Pesan Peringatan Penahanan Transaksi <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  className="w-full rounded-2xl border border-slate-200 p-3 text-xs sm:text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                  value={editForm.message}
+                  onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))}
+                  placeholder="Pesan yang menjelaskan mengapa transaksi ditahan..."
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Teks Tombol Utama"
+                  value={editForm.button_text}
+                  onChange={(e) => setEditForm((f) => ({ ...f, button_text: e.target.value }))}
+                  placeholder="Contoh: Cek Detail Keterangan"
                   required
                 />
                 <Input
@@ -645,56 +763,54 @@ export default function AdminLevels() {
                 />
               </div>
 
-              {/* Bagian Khusus Detail Ketentuan Asuransi (Level 3) */}
-              {editingLevel?.level === 3 && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-amber-600" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-amber-900">
-                      Pengaturan Layar Detail (Ketentuan Asuransi)
-                    </h4>
-                  </div>
-
-                  <Input
-                    label="Judul Halaman Detail"
-                    value={editForm.detail_title}
-                    onChange={(e) => setEditForm((f) => ({ ...f, detail_title: e.target.value }))}
-                    placeholder="Contoh: Ketentuan Asuransi Dana"
-                  />
-
-                  <div className="space-y-2 border-t border-amber-100 pt-2">
-                    <Input
-                      label="Poin 1: Judul Bagian"
-                      value={editForm.detail_sec1_header}
-                      onChange={(e) => setEditForm((f) => ({ ...f, detail_sec1_header: e.target.value }))}
-                      placeholder="Contoh: Mengapa perlu Asuransi?"
-                    />
-                    <textarea
-                      rows={2}
-                      className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
-                      value={editForm.detail_sec1_body}
-                      onChange={(e) => setEditForm((f) => ({ ...f, detail_sec1_body: e.target.value }))}
-                      placeholder="Penjelasan poin 1..."
-                    />
-                  </div>
-
-                  <div className="space-y-2 border-t border-amber-100 pt-2">
-                    <Input
-                      label="Poin 2: Judul Bagian"
-                      value={editForm.detail_sec2_header}
-                      onChange={(e) => setEditForm((f) => ({ ...f, detail_sec2_header: e.target.value }))}
-                      placeholder="Contoh: Apakah Dana Kembali?"
-                    />
-                    <textarea
-                      rows={2}
-                      className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
-                      value={editForm.detail_sec2_body}
-                      onChange={(e) => setEditForm((f) => ({ ...f, detail_sec2_body: e.target.value }))}
-                      placeholder="Penjelasan poin 2..."
-                    />
-                  </div>
+              {/* Bagian Khusus Detail Ketentuan Asuransi */}
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-amber-600" />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-amber-900">
+                    Pengaturan Layar Detail (Ketentuan Asuransi)
+                  </h4>
                 </div>
-              )}
+
+                <Input
+                  label="Judul Halaman Detail"
+                  value={editForm.detail_title}
+                  onChange={(e) => setEditForm((f) => ({ ...f, detail_title: e.target.value }))}
+                  placeholder="Contoh: Ketentuan Asuransi Dana"
+                />
+
+                <div className="space-y-2 border-t border-amber-100 pt-2">
+                  <Input
+                    label="Poin 1: Judul Bagian"
+                    value={editForm.detail_sec1_header}
+                    onChange={(e) => setEditForm((f) => ({ ...f, detail_sec1_header: e.target.value }))}
+                    placeholder="Contoh: Mengapa perlu Asuransi?"
+                  />
+                  <textarea
+                    rows={2}
+                    className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                    value={editForm.detail_sec1_body}
+                    onChange={(e) => setEditForm((f) => ({ ...f, detail_sec1_body: e.target.value }))}
+                    placeholder="Penjelasan poin 1..."
+                  />
+                </div>
+
+                <div className="space-y-2 border-t border-amber-100 pt-2">
+                  <Input
+                    label="Poin 2: Judul Bagian"
+                    value={editForm.detail_sec2_header}
+                    onChange={(e) => setEditForm((f) => ({ ...f, detail_sec2_header: e.target.value }))}
+                    placeholder="Contoh: Apakah Dana Kembali?"
+                  />
+                  <textarea
+                    rows={2}
+                    className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                    value={editForm.detail_sec2_body}
+                    onChange={(e) => setEditForm((f) => ({ ...f, detail_sec2_body: e.target.value }))}
+                    placeholder="Penjelasan poin 2..."
+                  />
+                </div>
+              </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <Button type="button" variant="ghost" onClick={() => setEditingLevel(null)}>
