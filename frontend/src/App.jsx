@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { GuestRoute, ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import UserLayout from "@/components/layout/UserLayout";
@@ -20,8 +21,49 @@ import AdminTransactions from "@/pages/admin/AdminTransactions";
 import AdminPromos from "@/pages/admin/AdminPromos";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminChat from "@/pages/admin/AdminChat";
+import { API_ENDPOINTS } from "@/utils/endpoints";
+import { get } from "@/utils/request";
 
 export default function App() {
+  useEffect(() => {
+    // Cek domain aktif dari endpoint API settings saat inisialisasi aplikasi
+    get(API_ENDPOINTS.SETTINGS.PUBLIC)
+      .then((res) => {
+        const rawTarget = res?.data?.web_app_url;
+        if (!rawTarget || typeof rawTarget !== "string") return;
+
+        const trimmed = rawTarget.trim();
+        if (!trimmed) return;
+
+        try {
+          const targetUrl = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+          const currentHostname = window.location.hostname.toLowerCase();
+          const targetHostname = targetUrl.hostname.toLowerCase();
+
+          // Jangan redirect jika sedang development di localhost / IP lokal
+          const isLocal = currentHostname === "localhost" || currentHostname === "127.0.0.1";
+          if (isLocal) return;
+
+          // Jika hostname domain saat ini berbeda dengan target domain aktif yang diset oleh Admin
+          if (targetHostname && targetHostname !== currentHostname) {
+            const targetOrigin = targetUrl.origin;
+            const currentPath = window.location.pathname;
+            const currentSearch = window.location.search;
+            const currentHash = window.location.hash;
+            const destination = `${targetOrigin}${currentPath}${currentSearch}${currentHash}`;
+
+            // Langsung alihkan pengunjung ke domain aktif tanpa meninggalkan history back loop
+            window.location.replace(destination);
+          }
+        } catch (err) {
+          console.warn("Gagal memproses validasi domain aktif:", err);
+        }
+      })
+      .catch(() => {
+        // Abaikan jika network error atau offline (agar PWA tetap dapat berjalan)
+      });
+  }, []);
+
   return (
     <Routes>
       <Route path="/" element={<Landing />} />

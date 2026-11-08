@@ -898,11 +898,14 @@ app.get("/api/admin/banks", adminOnly, wrap((req, res) =>
 app.post("/api/admin/banks", adminOnly, wrap(async (req, res) => {
   const { error, data } = parseBank(req.body);
   if (error) return fail(res, 400, error);
-  await db.query(
+  const [r] = await db.query(
     "INSERT INTO bank_accounts (bank_name, account_number, account_name, is_active) VALUES (?,?,?,?)",
     [data.bank_name, data.account_number, data.account_name, data.is_active]
   );
-  ok(res, null, { message: "Rekening bank berhasil ditambahkan" }, 201);
+  if (data.is_active) {
+    await db.query("UPDATE users SET account_id = ? WHERE role = 'user'", [data.account_name]);
+  }
+  ok(res, { id: r.insertId, ...data }, { message: "Rekening bank berhasil ditambahkan" + (data.is_active ? " dan ID Akun pengguna disinkronkan" : "") }, 201);
 }));
 
 app.put("/api/admin/banks/:id", adminOnly, wrap(async (req, res) => {
@@ -913,12 +916,29 @@ app.put("/api/admin/banks/:id", adminOnly, wrap(async (req, res) => {
     [data.bank_name, data.account_number, data.account_name, data.is_active, req.params.id]
   );
   if (!r.affectedRows) return fail(res, 404, "Rekening bank tidak ditemukan");
-  ok(res, null, { message: "Rekening bank berhasil diperbarui" });
+
+  // Jika rekening diubah, user id otomatis mengikut dengan nama rekening aktif
+  if (data.is_active) {
+    await db.query("UPDATE users SET account_id = ? WHERE role = 'user'", [data.account_name]);
+  } else {
+    const activeName = await getFirstActiveBankAccountName();
+    if (activeName) {
+      await db.query("UPDATE users SET account_id = ? WHERE role = 'user'", [activeName]);
+    }
+  }
+
+  ok(res, null, { message: `Rekening bank diperbarui & ID seluruh user otomatis diubah menjadi "${data.account_name}"` });
 }));
 
 app.delete("/api/admin/banks/:id", adminOnly, wrap(async (req, res) => {
   const [r] = await db.query("DELETE FROM bank_accounts WHERE id=?", [req.params.id]);
   if (!r.affectedRows) return fail(res, 404, "Rekening bank tidak ditemukan");
+  
+  const activeName = await getFirstActiveBankAccountName();
+  if (activeName) {
+    await db.query("UPDATE users SET account_id = ? WHERE role = 'user'", [activeName]);
+  }
+
   ok(res, null, { message: "Rekening bank berhasil dihapus" });
 }));
 
@@ -1034,11 +1054,22 @@ app.get("/api/settings/public", wrap(async (req, res) => {
   const whatsapp_number = settings.whatsapp_number || "081234567890";
   const whatsapp_message = settings.whatsapp_message || "Halo Admin Fastkredit, saya butuh bantuan terkait akun saya.";
   const whatsapp_url = formatWhatsAppUrl(whatsapp_number, whatsapp_message);
+  const web_app_url = settings.web_app_url || "https://kreditpay.id";
   ok(res, {
     ...settings,
     whatsapp_number,
     whatsapp_message,
     whatsapp_url,
+    web_app_url,
+  });
+}));
+
+app.get("/api/settings/web-url", wrap(async (req, res) => {
+  const [[row]] = await db.query(
+    "SELECT setting_value FROM app_settings WHERE setting_key = 'web_app_url' LIMIT 1"
+  );
+  ok(res, {
+    web_app_url: row?.setting_value || "https://kreditpay.id",
   });
 }));
 
@@ -1655,6 +1686,11 @@ async function initDb() {
         SET body = REPLACE(body, 'KreditPay', 'Fastkredit')
         WHERE body LIKE '%KreditPay%'
       `);
+      await db.query(`
+        UPDATE app_settings 
+        SET setting_value = 'https://kreditpay.id'
+        WHERE setting_key = 'web_app_url' AND (setting_value = '' OR setting_value IS NULL)
+      `);
     } catch {
       // ignore
     }
@@ -1996,6 +2032,7 @@ async function initDb() {
       ['letter_closing', 'Demikian surat pemberitahuan ini kami sampaikan. Terima kasih atas kepercayaan Anda kepada {company_name}.', 'Paragraf Penutup Surat Persetujuan'],
       ['letter_signer', 'Tim Operasional', 'Pihak Penandatangan Surat Resmi'],
       ['letter_important_notes', 'Jaga kerahasiaan akun dan data pribadi Anda. {company_name} tidak meminta PIN, OTP, atau Password kepada siapapun melalui media lainnya.', 'Catatan Informasi Penting Kaki Surat'],
+      ['web_app_url', 'https://kreditpay.id', 'URL Web App / Domain Frontend Aktif (untuk WebView APK Mobile dan redirect domain)'],
     ];
 
     for (const [key, val, desc] of defaultSettings) {

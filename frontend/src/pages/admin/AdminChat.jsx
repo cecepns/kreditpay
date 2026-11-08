@@ -16,6 +16,7 @@ import {
   Wallet,
   CreditCard,
   MessageSquare,
+  Volume2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import useDebounce from "@/hooks/useDebounce";
@@ -23,6 +24,7 @@ import { API_ENDPOINTS } from "@/utils/endpoints";
 import { get, post, upload } from "@/utils/request";
 import { formatTime, formatDateTime, formatRupiah, fileUrl } from "@/utils/format";
 import Button from "@/components/ui/Button";
+import { playChatNotificationSound } from "@/utils/sound";
 
 const QUICK_REPLIES = [
   "Halo kak, ada yang bisa kami bantu seputar akun Anda?",
@@ -53,6 +55,7 @@ export default function AdminChat() {
   const chatBodyRef = useRef(null);
   const messagesEndRef = useRef(null);
   const isNearBottomRef = useRef(true);
+  const prevConvMapRef = useRef(new Map());
 
   // Fetch daftar percakapan
   const fetchConversations = useCallback(async (isInitial = false) => {
@@ -62,6 +65,22 @@ export default function AdminChat() {
         search: debouncedSearch,
       });
       const data = res.data || [];
+      if (!isInitial) {
+        let hasIncoming = false;
+        data.forEach((c) => {
+          const prev = prevConvMapRef.current.get(c.user_id);
+          if (prev && c.last_message_at !== prev.last_message_at && c.last_sender_role === "user") {
+            hasIncoming = true;
+          }
+        });
+        if (hasIncoming) {
+          playChatNotificationSound();
+        }
+      }
+      const nextMap = new Map();
+      data.forEach((c) => nextMap.set(c.user_id, { last_message_at: c.last_message_at }));
+      prevConvMapRef.current = nextMap;
+
       setConversations(data);
       if (isInitial && data.length > 0 && !selectedUser && window.innerWidth >= 1024) {
         setSelectedUser(data[0]);
@@ -156,6 +175,9 @@ export default function AdminChat() {
       });
       const newMessages = res.data || [];
       if (newMessages.length > 0) {
+        if (newMessages.some((m) => m.sender_role === "user")) {
+          playChatNotificationSound();
+        }
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
           const filtered = newMessages.filter((m) => !existingIds.has(m.id));
@@ -275,11 +297,25 @@ export default function AdminChat() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black text-slate-900">Live Chat Customer Care</h1>
-        <p className="text-xs font-semibold text-slate-500">
-          Layanan pesan interaktif dua arah antara Admin dan Pengguna Fastkredit secara real-time.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900">Live Chat Customer Care</h1>
+          <p className="text-xs font-semibold text-slate-500">
+            Layanan pesan interaktif dua arah antara Admin dan Pengguna Fastkredit secara real-time.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            playChatNotificationSound();
+            toast.success("Nada dering notifikasi chat aktif 🔔");
+          }}
+          className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 active:scale-95 transition"
+          title="Uji coba nada dering notifikasi pesan masuk"
+        >
+          <Volume2 className="h-4 w-4 text-emerald-600" />
+          <span>Tes Suara Notif</span>
+        </button>
       </div>
 
       {/* Main Container 2 Kolom */}

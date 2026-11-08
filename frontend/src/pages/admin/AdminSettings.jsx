@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Eye,
   Layers,
+  Globe,
 } from "lucide-react";
 import useFetch from "@/hooks/useFetch";
 import { API_ENDPOINTS } from "@/utils/endpoints";
@@ -56,6 +57,7 @@ export default function AdminSettings() {
       setFormData({
         whatsapp_number: s.whatsapp_number || "",
         whatsapp_message: s.whatsapp_message || "",
+        web_app_url: s.web_app_url || "https://kreditpay.id",
         app_name: s.app_name || "Fastkredit",
         cs_email: s.cs_email || "support@fastkredit.com",
         cs_operational_hours: s.cs_operational_hours || "Senin - Minggu: 08:00 - 22:00 WIB",
@@ -263,6 +265,31 @@ export default function AdminSettings() {
               onChange={handleChange}
               placeholder="Senin - Minggu: 08:00 - 22:00 WIB"
             />
+          </div>
+
+          <div className="pt-2 border-t border-slate-100 space-y-3">
+            <Input
+              label="URL Web App / Domain Aktif"
+              name="web_app_url"
+              value={formData.web_app_url || ""}
+              onChange={handleChange}
+              placeholder="https://kreditpay.id"
+              helper="URL website frontend aktif saat ini. Digunakan untuk WebView APK Mobile dan redirect domain otomatis jika pengunjung membuka domain alternatif."
+            />
+            <div className="rounded-2xl bg-indigo-50/70 p-4 text-xs text-indigo-900 border border-indigo-100/90 space-y-1.5">
+              <p className="font-bold flex items-center gap-1.5 text-indigo-950">
+                <Globe className="h-4 w-4 text-indigo-600" />
+                Endpoint API untuk WebView Mobile APK &amp; Domain Router:
+              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1 font-mono text-[11px]">
+                <code className="bg-white px-2.5 py-1.5 rounded-xl border border-indigo-100 text-slate-800 break-all select-all flex-1">
+                  GET {window.location.origin}/api/settings/public (field: web_app_url)
+                </code>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Aplikasi mobile APK atau WebView dapat memanggil endpoint di atas saat inisialisasi aplikasi untuk memuat domain aktif secara dinamis tanpa perlu rilis ulang APK. Apabila pengunjung membuka domain lain, aplikasi web akan langsung mengalihkan (redirect) ke domain aktif yang diisi di atas.
+              </p>
+            </div>
           </div>
         </div>
 

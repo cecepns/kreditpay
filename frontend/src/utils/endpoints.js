@@ -28,6 +28,7 @@ export const API_ENDPOINTS = {
   },
   SETTINGS: {
     PUBLIC: "/settings/public",
+    WEB_URL: "/settings/web-url",
   },
   CHAT: {
     MESSAGES: "/chat/messages",

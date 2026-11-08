@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NavLink, Outlet, Link } from "react-router-dom";
 import { Bell, Landmark, Layers, LayoutGrid, LogOut, Menu, Receipt, Smartphone, Users, X, FileText, Sparkles, Settings, MessagesSquare } from "lucide-react";
 import useAuth from "@/hooks/useAuth";
 import Logo from "@/components/Logo";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { get } from "@/utils/request";
+import { playChatNotificationSound } from "@/utils/sound";
 
 const NAV = [
   { to: "/admin/dashboard", label: "Akses Cepat", icon: LayoutGrid },
@@ -22,17 +23,25 @@ const NAV = [
 export default function AdminLayout() {
   const [open, setOpen] = useState(false);
   const [unreadChat, setUnreadChat] = useState(0);
+  const prevUnreadRef = useRef(null);
   const { user, logout } = useAuth();
   const link = (active) => `flex items-center gap-3 rounded-2xl px-4 py-3 font-bold transition ${active ? "bg-primary-700 text-white" : "text-slate-600 hover:bg-slate-100"}`;
 
   useEffect(() => {
     const fetchUnread = () => {
       get(API_ENDPOINTS.ADMIN.CHAT.UNREAD)
-        .then((res) => setUnreadChat(res.data?.unread || 0))
+        .then((res) => {
+          const current = Number(res.data?.unread || 0);
+          if (prevUnreadRef.current !== null && current > prevUnreadRef.current) {
+            playChatNotificationSound();
+          }
+          prevUnreadRef.current = current;
+          setUnreadChat(current);
+        })
         .catch(() => {});
     };
     fetchUnread();
-    const timer = setInterval(fetchUnread, 10000);
+    const timer = setInterval(fetchUnread, 4000);
     return () => clearInterval(timer);
   }, []);
 

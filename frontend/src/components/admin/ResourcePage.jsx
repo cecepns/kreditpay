@@ -14,7 +14,7 @@ import { confirmToast } from "@/utils/confirm";
  * search realtime (debounce 300ms), pagination backend, modal create/edit, konfirmasi delete via toast.
  * `form` & `api` dihilangkan untuk halaman read-only.
  */
-export default function ResourcePage({ title, subtitle, listUrl, columns, params, form, api, filters, headerActions }) {
+export default function ResourcePage({ title, subtitle, listUrl, columns, params, form, api, filters, headerActions, extraActions }) {
   const list = usePaginated(listUrl, { params });
   const [modal, setModal] = useState(null);
   const [values, setValues] = useState({});
@@ -86,7 +86,8 @@ export default function ResourcePage({ title, subtitle, listUrl, columns, params
           sort={list.sort}
           onSort={list.toggleSort}
           actions={form && ((row) => (
-            <div className="inline-flex gap-1">
+            <div className="inline-flex items-center gap-1.5">
+              {extraActions && extraActions(row, list.reload)}
               <button onClick={() => openModal("edit", row)} aria-label="Edit" className="rounded-xl p-2 text-primary-700 hover:bg-primary-50"><Pencil className="h-4 w-4" /></button>
               <button onClick={() => remove(row)} aria-label="Hapus" className="rounded-xl p-2 text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
             </div>
@@ -106,6 +107,7 @@ export default function ResourcePage({ title, subtitle, listUrl, columns, params
                 type={f.type}
                 rows={f.rows}
                 placeholder={f.placeholder}
+                helper={f.helper}
                 value={values[f.name] ?? ""}
                 error={errors[f.name]}
                 onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}

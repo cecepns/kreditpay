@@ -1,4 +1,4 @@
-export default function Input({ label, error, as: Tag = "input", right, className = "", children, ...props }) {
+export default function Input({ label, error, helper, as: Tag = "input", right, className = "", children, ...props }) {
   return (
     <label className="block">
       {label && <span className="mb-2 block text-xs font-extrabold uppercase tracking-wide text-slate-400">{label}</span>}
@@ -11,6 +11,7 @@ export default function Input({ label, error, as: Tag = "input", right, classNam
         </Tag>
         {right && <span className="absolute right-3 top-1/2 -translate-y-1/2">{right}</span>}
       </span>
+      {helper && !error && <span className="mt-1.5 block text-xs font-medium text-slate-400">{helper}</span>}
       {error && <span className="mt-1.5 block text-sm font-semibold text-red-500">{error}</span>}
     </label>
   );
