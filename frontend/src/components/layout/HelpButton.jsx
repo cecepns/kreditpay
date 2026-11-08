@@ -327,7 +327,7 @@ export default function HelpButton() {
                   <span>Halo, {user?.name || "Kak"}!</span>
                 </div>
                 <p className="text-slate-600 leading-relaxed font-medium">
-                  Selamat datang di Layanan Pelanggan resmi <b>KreditPay</b>. Sampaikan pertanyaan seputar pengajuan Pinjaman, aktivasi limit, atau transaksi Anda.
+                  Selamat datang di Layanan Pelanggan resmi <b>Fastkredit</b>. Sampaikan pertanyaan seputar pengajuan Pinjaman, aktivasi limit, atau transaksi Anda.
                 </p>
               </div>
 

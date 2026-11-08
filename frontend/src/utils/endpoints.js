@@ -46,6 +46,8 @@ export const API_ENDPOINTS = {
       LIST: "/admin/users",
       DETAIL: (id) => `/admin/users/${id}`,
       LEVEL: (id) => `/admin/users/${id}/level`,
+      APPLY_ALL_ACCOUNT_ID: "/admin/users/apply-all-account-id",
+      DEFAULT_ACCOUNT_ID: "/admin/users/default-account-id",
     },
     BANKS: { LIST: "/admin/banks", DETAIL: (id) => `/admin/banks/${id}` },
     NOTIFICATIONS: { LIST: "/admin/notifications", DETAIL: (id) => `/admin/notifications/${id}` },

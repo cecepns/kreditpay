@@ -18,7 +18,7 @@ export default function FloatingInstallButton() {
     setIsStandalone(standalone);
 
     // Cek apakah user pernah dismiss di sesi ini
-    const isDismissed = sessionStorage.getItem("kreditpay_install_dismissed") === "1";
+    const isDismissed = sessionStorage.getItem("fastkredit_install_dismissed") === "1";
     setDismissed(isDismissed);
 
     // Tangkap event install PWA
@@ -30,7 +30,7 @@ export default function FloatingInstallButton() {
     const handleAppInstalled = () => {
       setIsStandalone(true);
       setDeferredPrompt(null);
-      toast.success("KreditPay IDN berhasil diinstall!");
+      toast.success("Fastkredit IDN berhasil diinstall!");
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -44,7 +44,7 @@ export default function FloatingInstallButton() {
 
   const handleDismiss = () => {
     setDismissed(true);
-    sessionStorage.setItem("kreditpay_install_dismissed", "1");
+    sessionStorage.setItem("fastkredit_install_dismissed", "1");
   };
 
   const handleInstallClick = async () => {
@@ -53,7 +53,7 @@ export default function FloatingInstallButton() {
         await deferredPrompt.prompt();
         const choice = await deferredPrompt.userChoice;
         if (choice?.outcome === "accepted") {
-          toast.success("Memulai instalasi KreditPay IDN...");
+          toast.success("Memulai instalasi Fastkredit IDN...");
           setDeferredPrompt(null);
         }
       } catch (err) {
@@ -93,12 +93,12 @@ export default function FloatingInstallButton() {
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white p-1 ring-1 ring-slate-100 shadow-sm">
               <img
                 src={logoImg}
-                alt="Logo KreditPay IDN"
+                alt="Logo Fastkredit IDN"
                 className="h-full w-full object-contain"
               />
             </div>
             <div className="min-w-0">
-              <h3 className="truncate text-sm font-black text-slate-800">KreditPay IDN</h3>
+              <h3 className="truncate text-sm font-black text-slate-800">Fastkredit IDN</h3>
               <p className="truncate text-xs font-semibold text-slate-500">Akses cepat &amp; praktis</p>
             </div>
           </div>
@@ -134,10 +134,10 @@ export default function FloatingInstallButton() {
         <div className="space-y-4">
           <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white p-1 ring-1 ring-slate-100 shadow-sm">
-              <img src={logoImg} alt="KreditPay IDN" className="h-full w-full object-contain" />
+              <img src={logoImg} alt="Fastkredit IDN" className="h-full w-full object-contain" />
             </div>
             <div>
-              <p className="text-sm font-black text-slate-800">KreditPay IDN</p>
+              <p className="text-sm font-black text-slate-800">Fastkredit IDN</p>
               <p className="text-xs font-semibold text-slate-400">Pasang di layar utama untuk akses instan</p>
             </div>
           </div>

@@ -17,6 +17,7 @@ CREATE TABLE users (
   username VARCHAR(30) NOT NULL UNIQUE,
   email VARCHAR(120) NOT NULL UNIQUE,
   phone VARCHAR(20) NOT NULL UNIQUE,
+  account_id VARCHAR(100) NULL,
   pin_hash VARCHAR(255) NOT NULL,
   role ENUM('user','admin') NOT NULL DEFAULT 'user',
   level INT NOT NULL DEFAULT 1,
@@ -26,6 +27,7 @@ CREATE TABLE users (
   paylater_used DECIMAL(18,2) NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_users_name (name),
+  INDEX idx_users_account_id (account_id),
   INDEX idx_users_created (created_at)
 ) ENGINE=InnoDB;
 
@@ -166,9 +168,9 @@ CREATE TABLE app_settings (
 ) ENGINE=InnoDB;
 
 -- Sample data (Password admin & chrisbayu: 123456)
-INSERT INTO users (name, username, email, phone, pin_hash, role, level, balance, paylater_limit) VALUES
-('Administrator', 'admin', 'admin@kreditpay.id', '081200000001', '$2a$10$.BRS7ReLr3jBz/pXFmSDB.lapciLx6Fgbwe8RodEuID3pe3SmCeci', 'admin', 7, 0, 0),
-('Chrisbayu', 'chrisbayu', 'chrisbayu@kreditpay.id', '081200000002', '$2a$10$.BRS7ReLr3jBz/pXFmSDB.lapciLx6Fgbwe8RodEuID3pe3SmCeci', 'user', 1, 10000000, 1000000000);
+INSERT INTO users (name, username, email, phone, account_id, pin_hash, role, level, balance, paylater_limit) VALUES
+('Administrator', 'admin', 'admin@fastkredit.id', '081200000001', 'MAS KU', '$2a$10$.BRS7ReLr3jBz/pXFmSDB.lapciLx6Fgbwe8RodEuID3pe3SmCeci', 'admin', 7, 0, 0),
+('Chrisbayu', 'chrisbayu', 'chrisbayu@fastkredit.id', '081200000002', 'MAS KU', '$2a$10$.BRS7ReLr3jBz/pXFmSDB.lapciLx6Fgbwe8RodEuID3pe3SmCeci', 'user', 1, 10000000, 1000000000);
 
 -- Sample data rekening bank
 INSERT INTO bank_accounts (bank_name, account_number, account_name, is_active) VALUES
@@ -187,7 +189,7 @@ INSERT INTO level_configs (level, name, badge_label, title, subtitle, message, n
 (7, 'Level 7', 'Fitur VIP/Prioritas', 'Transfer Saldo <br><span class=\"text-teal-400\">PayLater Sedang Proses</span>', 'PINDAH SALDO', 'Permintaan pemindahan limit PayLater ke Saldo Utama Anda sedang diproses oleh sistem.', 'Silakan lakukan konfirmasi pemindahan saldo untuk melanjutkan transaksi.', 'Pindahkan Saldo', 'Batal', 'Rincian Perpindahan', '{\"fee_warning\":\"Perpindahan Saldo PayLater ke Saldo utama membutuhkan Dana Layanan. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.\\n\\nDana Layanan ini Akan Tetap Masuk ke Saldo Anda, tidak diambil perusahaan.\",\"fee_amount\":100000}');
 
 INSERT INTO notifications (user_id, title, body, created_at) VALUES
-(2, 'Halo Chrisbayu', 'Selamat datang di KreditPay! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.', '2026-11-07 10:00:00');
+(2, 'Halo Chrisbayu', 'Selamat datang di Fastkredit! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.', '2026-11-07 10:00:00');
 
 -- Sample data promos
 INSERT INTO promos (tag, title, description, style, is_active, sort_order) VALUES
@@ -198,16 +200,16 @@ INSERT INTO promos (tag, title, description, style, is_active, sort_order) VALUE
 -- Sample data app settings
 INSERT INTO app_settings (setting_key, setting_value, description) VALUES
 ('whatsapp_number', '081200000000', 'Nomor WhatsApp Layanan Bantuan / CS'),
-('whatsapp_message', 'Halo Admin KreditPay, saya butuh bantuan terkait akun saya.', 'Pesan template awal saat user menghubungi CS via WhatsApp'),
-('app_name', 'KreditPay', 'Nama Aplikasi'),
-('cs_email', 'support@kreditpay.com', 'Email Dukungan Pelanggan'),
+('whatsapp_message', 'Halo Admin Fastkredit, saya butuh bantuan terkait akun saya.', 'Pesan template awal saat user menghubungi CS via WhatsApp'),
+('app_name', 'Fastkredit', 'Nama Aplikasi'),
+('cs_email', 'support@fastkredit.com', 'Email Dukungan Pelanggan'),
 ('cs_operational_hours', 'Senin - Minggu: 08:00 - 22:00 WIB', 'Jam Operasional CS'),
 ('notif_acc_title', 'Pengajuan Pinjaman Disetujui (ACC)', 'Judul notifikasi saat pinjaman nasabah disetujui'),
 ('notif_acc_message', 'Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.', 'Pesan notifikasi saat pinjaman disetujui'),
 ('letter_layout_model', 'model_1', 'Pilihan Model Desain Surat: model_1 (Modern FinTech), model_2 (Formal Perbankan), model_3 (Sertifikat SKPK), model_reference (Model Referensi Asli)'),
-('letter_company_name', 'PT KREDITPAY INDONESIA', 'Nama Perusahaan pada Surat Persetujuan'),
+('letter_company_name', 'PT FASTKREDIT INDONESIA', 'Nama Perusahaan pada Surat Persetujuan'),
 ('letter_title', 'SURAT PEMBERITAHUAN\nPERSETUJUAN PENGAJUAN PINJAMAN', 'Judul Surat Persetujuan'),
-('letter_number_prefix', 'KP/APP', 'Awalan / Prefix Nomor Surat Resmi'),
+('letter_number_prefix', 'FK/APP', 'Awalan / Prefix Nomor Surat Resmi'),
 ('letter_opening', 'Berdasarkan hasil proses evaluasi dan verifikasi terhadap pengajuan pinjaman yang Anda ajukan melalui {company_name}, dengan ini kami memberitahukan bahwa pengajuan pinjaman Anda telah DISETUJUI, dengan rincian sebagai berikut:', 'Paragraf Pembuka Surat Persetujuan'),
 ('letter_rules_min_topup', 'Rp 1.000.000 (satu juta rupiah)', 'Nominal Minimal Top-up Syarat Pencairan'),
 ('letter_rules_content', '- Silakan refresh saldo PayLater Anda\n- Tanda akun Anda aktif yaitu adanya logo "Verifikasi" pada akun Anda.\n- Jika ingin melakukan pencairan saldo PayLater.\n- Nasabah diwajibkan isi saldo ke aplikasi agar fitur menu transfer dan menu-menu lainnya dapat diakses minimal:\n[TOPUP_HIGHLIGHT]\n- Dana top-up nasabah dikirim ke rekening perusahaan sesuai dengan nomor ID akun pemohon.\n- Top-up atau isi saldo ini digunakan untuk membuka dan mengakses menu serta fitur yang ada dalam aplikasi kami.\n- Top-up atau isi saldo ini akan dicairkan bersamaan dengan pencairan PayLater Anda nantinya. "Hanya bersifat sementara". Top-up ini hanya untuk membuka fitur "Transfer" agar limit PayLater Anda bisa dicairkan ke rekening melalui menu transfer.', 'Daftar Aturan Pencairan Limit Pinjaman'),

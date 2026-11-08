@@ -51,22 +51,22 @@ export default function ApprovalLetterDocument({
   template = {},
   application = {},
   userInfo = {},
-  appName = "KreditPay",
+  appName = "Fastkredit",
   helpers = {},
 }) {
   const {
-    formatLetterNumber = (id) => `KP/APP/112026/${String(id || 1).padStart(6, "0")}`,
+    formatLetterNumber = (id) => `FK/APP/112026/${String(id || 1).padStart(6, "0")}`,
     formatApplicationCode = (id) => `PINJ-202611-${String(id || 1).padStart(6, "0")}`,
     formatFormalDate = () => "07 November 2026",
     formatFormalDateTime = () => "07 November 2026, 19:40 WIB",
   } = helpers;
 
-  const companyName = template.letter_company_name || "PT KREDITPAY INDONESIA";
-  const appTitle = appName || template.app_name || "KreditPay";
+  const companyName = template.letter_company_name || "PT FASTKREDIT INDONESIA";
+  const appTitle = appName || template.app_name || "Fastkredit";
   const customerName = application.full_name || userInfo.name || "Nasabah";
   const accountId = userInfo.username
     ? userInfo.username.toUpperCase()
-    : `KP-${String(application.user_id || userInfo.id || "0082").padStart(4, "0")}`;
+    : `FK-${String(application.user_id || userInfo.id || "0082").padStart(4, "0")}`;
   const appNumber = formatLetterNumber(
     application.id,
     application.created_at,
@@ -307,7 +307,7 @@ export default function ApprovalLetterDocument({
             <div className="text-right font-sans text-[10px] text-slate-500 leading-tight">
               <p>Kantor Operasional Pusat</p>
               <p>Layanan Hotline: 0812-0000-0000</p>
-              <p>Website: www.kreditpay.co.id</p>
+              <p>Website: www.fastkredit.co.id</p>
             </div>
           </div>
         </div>

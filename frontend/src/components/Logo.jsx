@@ -11,7 +11,7 @@ export default function Logo({ size = "md" }) {
         <ArrowUpRight className={icon} strokeWidth={3} />
       </span>
       <span className={`${text} font-black text-slate-800 tracking-tight`}>
-        Kredit<span className="bg-gradient-to-r from-indigo-500 to-accent-400 bg-clip-text text-transparent">Pay</span>
+        Fast<span className="bg-gradient-to-r from-indigo-500 to-accent-400 bg-clip-text text-transparent">kredit</span>
       </span>
     </span>
   );

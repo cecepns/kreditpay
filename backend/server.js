@@ -50,8 +50,18 @@ const rules = {
   username: (v) => /^[a-z0-9_.]{4,30}$/.test(v),
 };
 
-const USER_FIELDS = "id,name,username,email,phone,role,level,avatar,balance,paylater_limit,paylater_used,created_at";
+const USER_FIELDS = "id,name,username,email,phone,role,level,avatar,balance,paylater_limit,paylater_used,account_id,created_at";
 const findUser = async (id) => (await db.query(`SELECT ${USER_FIELDS} FROM users WHERE id=?`, [id]))[0][0];
+const getFirstActiveBankAccountName = async () => {
+  try {
+    const [[b]] = await db.query(
+      "SELECT account_name FROM bank_accounts WHERE is_active=1 ORDER BY id ASC LIMIT 1"
+    );
+    return b?.account_name || null;
+  } catch {
+    return null;
+  }
+};
 const sign = (u) => jwt.sign({ id: u.id, role: u.role }, process.env.JWT_SECRET || "kreditpay-fallback-secret-2026", { expiresIn: "7d" });
 
 async function withTx(fn) {
@@ -176,9 +186,10 @@ app.post("/api/auth/register", wrap(async (req, res) => {
   const { error, data } = parseUser(req.body, { pinRequired: true });
   if (error) return fail(res, 400, error);
   const hash = await bcrypt.hash(data.pin, 10);
+  const defaultAccountId = await getFirstActiveBankAccountName();
   const [r] = await db.query(
-    "INSERT INTO users (name,username,email,phone,pin_hash,paylater_limit) VALUES (?,?,?,?,?,0)",
-    [data.name, data.username, data.email, data.phone, hash]
+    "INSERT INTO users (name,username,email,phone,pin_hash,paylater_limit,account_id) VALUES (?,?,?,?,?,0,?)",
+    [data.name, data.username, data.email, data.phone, hash, defaultAccountId]
   );
   const user = await findUser(r.insertId);
 
@@ -189,7 +200,7 @@ app.post("/api/auth/register", wrap(async (req, res) => {
       [
         user.id,
         `Halo ${data.name}`,
-        `Selamat datang di KreditPay! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.`
+        `Selamat datang di Fastkredit! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.`
       ]
     );
   } catch (err) {
@@ -531,7 +542,7 @@ app.get("/api/admin/paylater", adminOnly, wrap((req, res) =>
 ));
 
 const formatAccNotification = (userName, nominalStr, settings = {}) => {
-  const appName = settings.app_name || "KreditPay";
+  const appName = settings.app_name || "Fastkredit";
   let title = settings.notif_acc_title || "Pengajuan Pinjaman Disetujui (ACC)";
   let body = settings.notif_acc_message || "Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.";
 
@@ -586,7 +597,7 @@ app.put("/api/admin/paylater/:id/status", adminOnly, wrap(async (req, res) => {
         [
           appRow.user_id,
           "Pengajuan Pinjaman Belum Disetujui",
-          "Mohon maaf, pengajuan pinjaman Anda belum dapat disetujui saat ini. Silakan periksa kembali kelengkapan data pengajuan Anda atau hubungi layanan bantuan pelanggan KreditPay."
+          "Mohon maaf, pengajuan pinjaman Anda belum dapat disetujui saat ini. Silakan periksa kembali kelengkapan data pengajuan Anda atau hubungi layanan bantuan pelanggan Fastkredit."
         ]
       );
     }
@@ -690,7 +701,7 @@ app.post("/api/admin/paylater/bulk-reject", adminOnly, wrap(async (req, res) => 
         [
           a.user_id,
           "Pengajuan Pinjaman Belum Disetujui",
-          "Mohon maaf, pengajuan pinjaman Anda belum dapat disetujui saat ini. Silakan periksa kembali kelengkapan data pengajuan Anda atau hubungi layanan bantuan pelanggan KreditPay."
+          "Mohon maaf, pengajuan pinjaman Anda belum dapat disetujui saat ini. Silakan periksa kembali kelengkapan data pengajuan Anda atau hubungi layanan bantuan pelanggan Fastkredit."
         ]
       );
     }
@@ -733,8 +744,8 @@ app.get("/api/admin/users", adminOnly, wrap((req, res) =>
   paginate(req, res, {
     from: "users",
     select: USER_FIELDS,
-    searchCols: ["name", "username", "email", "phone"],
-    sortable: { created_at: "created_at", name: "name", username: "username", balance: "balance" },
+    searchCols: ["name", "username", "email", "phone", "account_id"],
+    sortable: { created_at: "created_at", name: "name", username: "username", balance: "balance", account_id: "account_id" },
     defaultSort: "created_at",
     filters: { role: "role" },
   })
@@ -745,16 +756,41 @@ const adminUserExtras = (b) => ({
   level: [1, 2, 3, 4, 5, 6, 7].includes(Number(b.level)) ? Number(b.level) : 1,
   balance: money(b.balance),
   paylater_limit: money(b.paylater_limit),
+  account_id: b.account_id !== undefined ? clean(String(b.account_id || ""), 100) : undefined,
 });
+
+app.get("/api/admin/users/default-account-id", adminOnly, wrap(async (req, res) => {
+  const account_name = await getFirstActiveBankAccountName();
+  ok(res, { account_name });
+}));
+
+app.post("/api/admin/users/apply-all-account-id", adminOnly, wrap(async (req, res) => {
+  let targetId = req.body.account_id ? clean(String(req.body.account_id), 100) : null;
+  if (!targetId) {
+    targetId = await getFirstActiveBankAccountName();
+  }
+  if (!targetId) {
+    return fail(res, 400, "Tidak ada Nomor ID Akun atau rekening aktif yang ditemukan");
+  }
+
+  const [r] = await db.query("UPDATE users SET account_id = ?", [targetId]);
+  ok(res, {
+    account_id: targetId,
+    affectedRows: r.affectedRows,
+  }, {
+    message: `Berhasil mengubah Nomor ID Akun untuk ${r.affectedRows} pengguna menjadi "${targetId}"`
+  });
+}));
 
 app.post("/api/admin/users", adminOnly, wrap(async (req, res) => {
   const { error, data } = parseUser(req.body, { pinRequired: true });
   if (error) return fail(res, 400, error);
   const x = adminUserExtras(req.body);
+  const targetAccountId = x.account_id || (await getFirstActiveBankAccountName());
   const hash = await bcrypt.hash(data.pin, 10);
   const [r] = await db.query(
-    "INSERT INTO users (name,username,email,phone,pin_hash,role,level,balance,paylater_limit) VALUES (?,?,?,?,?,?,?,?,?)",
-    [data.name, data.username, data.email, data.phone, hash, x.role, x.level, x.balance, x.paylater_limit]
+    "INSERT INTO users (name,username,email,phone,pin_hash,role,level,balance,paylater_limit,account_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+    [data.name, data.username, data.email, data.phone, hash, x.role, x.level, x.balance, x.paylater_limit, targetAccountId]
   );
   if (x.role === "user") {
     try {
@@ -763,7 +799,7 @@ app.post("/api/admin/users", adminOnly, wrap(async (req, res) => {
         [
           r.insertId,
           `Halo ${data.name}`,
-          `Selamat datang di KreditPay! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.`
+          `Selamat datang di Fastkredit! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.`
         ]
       );
     } catch {}
@@ -777,6 +813,10 @@ app.put("/api/admin/users/:id", adminOnly, wrap(async (req, res) => {
   const x = adminUserExtras(req.body);
   const sets = ["name=?", "username=?", "email=?", "phone=?", "role=?", "level=?", "balance=?", "paylater_limit=?"];
   const vals = [data.name, data.username, data.email, data.phone, x.role, x.level, x.balance, x.paylater_limit];
+  if (x.account_id !== undefined) {
+    sets.push("account_id=?");
+    vals.push(x.account_id || null);
+  }
   if (data.pin) { sets.push("pin_hash=?"); vals.push(await bcrypt.hash(data.pin, 10)); }
   const [r] = await db.query(`UPDATE users SET ${sets.join(",")} WHERE id=?`, [...vals, req.params.id]);
   if (!r.affectedRows) return fail(res, 404, "Pengguna tidak ditemukan");
@@ -992,7 +1032,7 @@ app.get("/api/settings/public", wrap(async (req, res) => {
     return acc;
   }, {});
   const whatsapp_number = settings.whatsapp_number || "081234567890";
-  const whatsapp_message = settings.whatsapp_message || "Halo Admin KreditPay, saya butuh bantuan terkait akun saya.";
+  const whatsapp_message = settings.whatsapp_message || "Halo Admin Fastkredit, saya butuh bantuan terkait akun saya.";
   const whatsapp_url = formatWhatsAppUrl(whatsapp_number, whatsapp_message);
   ok(res, {
     ...settings,
@@ -1009,7 +1049,7 @@ app.get("/api/admin/settings", adminOnly, wrap(async (req, res) => {
     return acc;
   }, {});
   const whatsapp_number = settings.whatsapp_number || "081234567890";
-  const whatsapp_message = settings.whatsapp_message || "Halo Admin KreditPay, saya butuh bantuan terkait akun saya.";
+  const whatsapp_message = settings.whatsapp_message || "Halo Admin Fastkredit, saya butuh bantuan terkait akun saya.";
   const whatsapp_url = formatWhatsAppUrl(whatsapp_number, whatsapp_message);
   ok(res, {
     settings,
@@ -1054,7 +1094,7 @@ app.put("/api/admin/settings", adminOnly, wrap(async (req, res) => {
     return acc;
   }, {});
   const whatsapp_number = settings.whatsapp_number || "081234567890";
-  const whatsapp_message = settings.whatsapp_message || "Halo Admin KreditPay, saya butuh bantuan terkait akun saya.";
+  const whatsapp_message = settings.whatsapp_message || "Halo Admin Fastkredit, saya butuh bantuan terkait akun saya.";
   const whatsapp_url = formatWhatsAppUrl(whatsapp_number, whatsapp_message);
   ok(res, { settings, whatsapp_url }, { message: "Pengaturan berhasil disimpan" });
 }));
@@ -1538,6 +1578,25 @@ async function initDb() {
     }
 
     try {
+      await db.query("ALTER TABLE users ADD COLUMN account_id VARCHAR(100) NULL AFTER phone");
+    } catch {
+      // Kolom account_id sudah ada
+    }
+
+    try {
+      await db.query(`
+        UPDATE users u
+        CROSS JOIN (
+          SELECT account_name FROM bank_accounts WHERE is_active=1 ORDER BY id ASC LIMIT 1
+        ) b
+        SET u.account_id = b.account_name
+        WHERE (u.account_id IS NULL OR u.account_id = '') AND u.role = 'user'
+      `);
+    } catch {
+      // ignore
+    }
+
+    try {
       await db.query("ALTER TABLE notifications ADD COLUMN user_id INT NULL AFTER id");
     } catch {
       // Kolom user_id sudah ada
@@ -1556,7 +1615,7 @@ async function initDb() {
         SELECT 
           u.id,
           CONCAT('Halo ', u.name),
-          CONCAT('Selamat datang di KreditPay! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.'),
+          CONCAT('Selamat datang di Fastkredit! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.'),
           u.created_at
         FROM users u
         WHERE u.role = 'user'
@@ -1564,6 +1623,37 @@ async function initDb() {
             SELECT 1 FROM notifications n 
             WHERE n.user_id = u.id AND n.title LIKE 'Halo%'
           )
+      `);
+    } catch {
+      // ignore
+    }
+
+    // Perbarui nama aplikasi KreditPay menjadi Fastkredit pada database
+    try {
+      await db.query(`
+        UPDATE app_settings 
+        SET setting_value = REPLACE(setting_value, 'KreditPay', 'Fastkredit')
+        WHERE setting_value LIKE '%KreditPay%'
+      `);
+      await db.query(`
+        UPDATE app_settings 
+        SET setting_value = REPLACE(setting_value, 'KREDITPAY', 'FASTKREDIT')
+        WHERE setting_value LIKE '%KREDITPAY%'
+      `);
+      await db.query(`
+        UPDATE app_settings 
+        SET setting_value = REPLACE(setting_value, 'kreditpay', 'fastkredit')
+        WHERE setting_value LIKE '%kreditpay%'
+      `);
+      await db.query(`
+        UPDATE app_settings 
+        SET setting_value = REPLACE(setting_value, 'KP/APP', 'FK/APP')
+        WHERE setting_key = 'letter_number_prefix' AND setting_value = 'KP/APP'
+      `);
+      await db.query(`
+        UPDATE notifications 
+        SET body = REPLACE(body, 'KreditPay', 'Fastkredit')
+        WHERE body LIKE '%KreditPay%'
       `);
     } catch {
       // ignore
@@ -1890,16 +1980,16 @@ async function initDb() {
     const [[{ count: settingsCount }]] = await db.query("SELECT COUNT(*) AS count FROM app_settings");
     const defaultSettings = [
       ['whatsapp_number', '081200000000', 'Nomor WhatsApp Layanan Bantuan / CS'],
-      ['whatsapp_message', 'Halo Admin KreditPay, saya butuh bantuan terkait akun saya.', 'Pesan template awal saat user menghubungi CS via WhatsApp'],
-      ['app_name', 'KreditPay', 'Nama Aplikasi'],
-      ['cs_email', 'support@kreditpay.com', 'Email Dukungan Pelanggan'],
+      ['whatsapp_message', 'Halo Admin Fastkredit, saya butuh bantuan terkait akun saya.', 'Pesan template awal saat user menghubungi CS via WhatsApp'],
+      ['app_name', 'Fastkredit', 'Nama Aplikasi'],
+      ['cs_email', 'support@fastkredit.com', 'Email Dukungan Pelanggan'],
       ['cs_operational_hours', 'Senin - Minggu: 08:00 - 22:00 WIB', 'Jam Operasional CS'],
       ['notif_acc_title', 'Pengajuan Pinjaman Disetujui (ACC)', 'Judul notifikasi saat pinjaman nasabah disetujui'],
       ['notif_acc_message', 'Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.', 'Pesan notifikasi saat pinjaman disetujui'],
       ['letter_layout_model', 'model_1', 'Pilihan Model Desain Surat: model_1 (Modern FinTech), model_2 (Formal Perbankan), model_3 (Sertifikat SKPK), model_reference (Model Referensi Asli)'],
-      ['letter_company_name', 'PT KREDITPAY INDONESIA', 'Nama Perusahaan pada Surat Persetujuan'],
+      ['letter_company_name', 'PT FASTKREDIT INDONESIA', 'Nama Perusahaan pada Surat Persetujuan'],
       ['letter_title', 'SURAT PEMBERITAHUAN\nPERSETUJUAN PENGAJUAN PINJAMAN', 'Judul Surat Persetujuan'],
-      ['letter_number_prefix', 'KP/APP', 'Awalan / Prefix Nomor Surat Resmi'],
+      ['letter_number_prefix', 'FK/APP', 'Awalan / Prefix Nomor Surat Resmi'],
       ['letter_opening', 'Berdasarkan hasil proses evaluasi dan verifikasi terhadap pengajuan pinjaman yang Anda ajukan melalui {company_name}, dengan ini kami memberitahukan bahwa pengajuan pinjaman Anda telah DISETUJUI, dengan rincian sebagai berikut:', 'Paragraf Pembuka Surat Persetujuan'],
       ['letter_rules_min_topup', 'Rp 1.000.000 (satu juta rupiah)', 'Nominal Minimal Top-up Syarat Pencairan'],
       ['letter_rules_content', '- Silakan refresh saldo PayLater Anda\n- Tanda akun Anda aktif yaitu adanya logo "Verifikasi" pada akun Anda.\n- Jika ingin melakukan pencairan saldo PayLater.\n- Nasabah diwajibkan isi saldo ke aplikasi agar fitur menu transfer dan menu-menu lainnya dapat diakses minimal:\n[TOPUP_HIGHLIGHT]\n- Dana top-up nasabah dikirim ke rekening perusahaan sesuai dengan nomor ID akun pemohon.\n- Top-up atau isi saldo ini digunakan untuk membuka dan mengakses menu serta fitur yang ada dalam aplikasi kami.\n- Top-up atau isi saldo ini akan dicairkan bersamaan dengan pencairan PayLater Anda nantinya. "Hanya bersifat sementara". Top-up ini hanya untuk membuka fitur "Transfer" agar limit PayLater Anda bisa dicairkan ke rekening melalui menu transfer.', 'Daftar Aturan Pencairan Limit Pinjaman'],
@@ -1937,5 +2027,5 @@ async function initDb() {
 }
 
 initDb().then(() => {
-  app.listen(PORT, () => console.log(`KreditPay API berjalan di http://localhost:${PORT}`));
+  app.listen(PORT, () => console.log(`Fastkredit API berjalan di http://localhost:${PORT}`));
 });

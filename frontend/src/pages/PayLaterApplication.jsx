@@ -84,9 +84,9 @@ export default function PayLaterApplication() {
   // Template Surat Resmi Persetujuan Pinjaman (Dapat diedit oleh Admin di Pengaturan)
   const [letterTemplate, setLetterTemplate] = useState({
     letter_layout_model: "model_1",
-    letter_company_name: "PT KREDITPAY INDONESIA",
+    letter_company_name: "PT FASTKREDIT INDONESIA",
     letter_title: "SURAT PEMBERITAHUAN\nPERSETUJUAN PENGAJUAN PINJAMAN",
-    letter_number_prefix: "KP/APP",
+    letter_number_prefix: "FK/APP",
     letter_opening:
       "Berdasarkan hasil proses evaluasi dan verifikasi terhadap pengajuan pinjaman yang Anda ajukan melalui {company_name}, dengan ini kami memberitahukan bahwa pengajuan pinjaman Anda telah DISETUJUI, dengan rincian sebagai berikut:",
     letter_rules_min_topup: "Rp 1.000.000 (satu juta rupiah)",
@@ -915,10 +915,10 @@ export default function PayLaterApplication() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* ── TAHAP 0: RIWAYAT PINJAMAN (TEMA UNGU KREDITPAY) ── */}
+      {/* ── TAHAP 0: RIWAYAT PINJAMAN (TEMA UNGU FASTKREDIT) ── */}
       {stage === "riwayat" && (
         <div className="flex flex-col min-h-screen bg-[#F8FAFC] pb-12">
-          {/* Header Ungu Khas KreditPay dengan Tombol Kembali */}
+          {/* Header Ungu Khas Fastkredit dengan Tombol Kembali */}
           <header className="relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-800 to-indigo-900 px-5 pt-6 pb-12 text-white rounded-b-[2.5rem] shadow-xl">
             {/* Ambient Glow Latar Ungu */}
             <div className="pointer-events-none absolute -right-12 -top-12 h-60 w-60 rounded-full bg-white/10 blur-3xl" />
@@ -1004,7 +1004,7 @@ export default function PayLaterApplication() {
                     </p>
                   </div>
 
-                  {/* Tombol kembali ke Beranda (Warna Ungu Khas KreditPay) */}
+                  {/* Tombol kembali ke Beranda (Warna Ungu Khas Fastkredit) */}
                   <button
                     type="button"
                     onClick={() => navigate("/app")}
@@ -1238,7 +1238,7 @@ export default function PayLaterApplication() {
                 </button>
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-1 text-xs font-black tracking-wide text-white backdrop-blur-md">
                   <Sparkles className="h-3.5 w-3.5 text-teal-300" />
-                  <span>KreditPay Pinjaman</span>
+                  <span>Fastkredit Pinjaman</span>
                 </div>
               </div>
 
@@ -1726,7 +1726,7 @@ export default function PayLaterApplication() {
                   </div>
                   <div className="flex items-start gap-2.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-primary-700 mt-1.5 shrink-0" />
-                    <p>Pinjaman yang sudah di acc / Saldo yang akan muncul di aplikasi Kreditpay nantinya tidak bisa di batalkan dengan alasan apapun.</p>
+                    <p>Pinjaman yang sudah di acc / Saldo yang akan muncul di aplikasi Fastkredit nantinya tidak bisa di batalkan dengan alasan apapun.</p>
                   </div>
                   <div className="flex items-start gap-2.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-primary-700 mt-1.5 shrink-0" />
@@ -1743,7 +1743,7 @@ export default function PayLaterApplication() {
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-slate-400">Hormat Kami,</p>
-                    <p className="text-xs font-black text-primary-900 tracking-wider">KREDITPAY</p>
+                    <p className="text-xs font-black text-primary-900 tracking-wider">FASTKREDIT</p>
                   </div>
                 </div>
               </div>
@@ -2602,7 +2602,7 @@ export default function PayLaterApplication() {
       >
         <div className="space-y-4 text-xs font-medium text-slate-600">
           <p className="text-sm font-bold text-slate-800">
-            Berikut adalah ketentuan dan kualifikasi minimum pengajuan Pinjaman KreditPay:
+            Berikut adalah ketentuan dan kualifikasi minimum pengajuan Pinjaman Fastkredit:
           </p>
           <ul className="space-y-2 list-disc pl-4 text-slate-700">
             <li>Warga Negara Indonesia (WNI) berusia minimal 21 tahun dan maksimal 60 tahun saat pelunasan.</li>
@@ -2655,7 +2655,7 @@ export default function PayLaterApplication() {
               <div className="flex items-start gap-2.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-slate-800 mt-2 shrink-0" />
                 <p className="text-slate-700">
-                  Pinjaman yang sudah di acc / Saldo yang akan muncul di aplikasi Kreditpay nantinya tidak bisa di batalkan dengan alasan apapun.
+                  Pinjaman yang sudah di acc / Saldo yang akan muncul di aplikasi Fastkredit nantinya tidak bisa di batalkan dengan alasan apapun.
                 </p>
               </div>
 
@@ -2669,7 +2669,7 @@ export default function PayLaterApplication() {
 
             <div className="text-right pt-1 pr-1">
               <p className="text-[11px] text-slate-400">Hormat Kami,</p>
-              <p className="text-xs font-black text-slate-900 tracking-wider">KREDITPAY</p>
+              <p className="text-xs font-black text-slate-900 tracking-wider">FASTKREDIT</p>
             </div>
           </div>
 
@@ -2691,7 +2691,7 @@ export default function PayLaterApplication() {
                 <Check className="h-3.5 w-3.5 stroke-[3]" />
               </div>
               <span className="text-xs text-slate-600 leading-snug">
-                Saya telah membaca dan menyetujui Informasi Ketentuan dan Kebijakan Privasi oleh <strong className="text-slate-900 font-bold">Kreditpay</strong>
+                Saya telah membaca dan menyetujui Informasi Ketentuan dan Kebijakan Privasi oleh <strong className="text-slate-900 font-bold">Fastkredit</strong>
               </span>
             </label>
 
@@ -2792,7 +2792,7 @@ export default function PayLaterApplication() {
                 template={letterTemplate}
                 application={application || {}}
                 userInfo={userInfo || {}}
-                appName="KreditPay"
+                appName="Fastkredit"
                 helpers={{
                   formatLetterNumber,
                   formatApplicationCode,

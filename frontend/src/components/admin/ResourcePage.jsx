@@ -14,7 +14,7 @@ import { confirmToast } from "@/utils/confirm";
  * search realtime (debounce 300ms), pagination backend, modal create/edit, konfirmasi delete via toast.
  * `form` & `api` dihilangkan untuk halaman read-only.
  */
-export default function ResourcePage({ title, subtitle, listUrl, columns, params, form, api, filters }) {
+export default function ResourcePage({ title, subtitle, listUrl, columns, params, form, api, filters, headerActions }) {
   const list = usePaginated(listUrl, { params });
   const [modal, setModal] = useState(null);
   const [values, setValues] = useState({});
@@ -63,7 +63,10 @@ export default function ResourcePage({ title, subtitle, listUrl, columns, params
           <h1 className="text-2xl font-extrabold text-slate-800">{title}</h1>
           {subtitle && <p className="text-sm font-semibold text-slate-500">{subtitle}</p>}
         </div>
-        {form && <Button icon={Plus} onClick={() => openModal("create")}>Tambah</Button>}
+        <div className="flex flex-wrap items-center gap-2">
+          {headerActions}
+          {form && <Button icon={Plus} onClick={() => openModal("create")}>Tambah</Button>}
+        </div>
       </div>
 
       <div className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-100">

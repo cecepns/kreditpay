@@ -42,7 +42,7 @@ export default function Account() {
   };
 
   const rows = [
-    { icon: Hash, label: "Nomor ID Akun", value: `USR${String(user.id).padStart(6, "0")}` },
+    { icon: Hash, label: "Nomor ID Akun", value: user.account_id || (user.id ? `USR${String(user.id).padStart(6, "0")}` : "-") },
     { icon: User, label: "Username", value: `@${user.username}` },
     { icon: Mail, label: "Email", value: user.email },
     { icon: Phone, label: "No HP", value: user.phone },

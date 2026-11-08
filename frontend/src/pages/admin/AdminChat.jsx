@@ -29,7 +29,7 @@ const QUICK_REPLIES = [
   "Pengajuan Pinjaman Anda sedang dalam proses verifikasi tim analis kami ya kak.",
   "Dokumen Anda telah kami terima dengan baik. Mohon menunggu proses approval.",
   "Limit Pinjaman Anda sudah berhasil kami setujui dan aktif ya kak. Selamat menikmati kemudahan bertransaksi!",
-  "Terima kasih telah menghubungi Customer Care KreditPay.",
+  "Terima kasih telah menghubungi Customer Care Fastkredit.",
 ];
 
 export default function AdminChat() {
@@ -278,7 +278,7 @@ export default function AdminChat() {
       <div>
         <h1 className="text-2xl font-black text-slate-900">Live Chat Customer Care</h1>
         <p className="text-xs font-semibold text-slate-500">
-          Layanan pesan interaktif dua arah antara Admin dan Pengguna KreditPay secara real-time.
+          Layanan pesan interaktif dua arah antara Admin dan Pengguna Fastkredit secara real-time.
         </p>
       </div>
 

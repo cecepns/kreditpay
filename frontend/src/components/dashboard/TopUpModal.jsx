@@ -4,6 +4,7 @@ import { ArrowLeft, Check, Copy, ImagePlus, TriangleAlert, UploadCloud, X } from
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import useAuth from "@/hooks/useAuth";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { get, upload } from "@/utils/request";
 import { digitsOnly, formatRupiah } from "@/utils/format";
@@ -11,6 +12,7 @@ import { digitsOnly, formatRupiah } from "@/utils/format";
 const PRESET_AMOUNTS = [20000, 50000, 100000, 200000, 500000, 1000000];
 
 export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }) {
+  const { user } = useAuth();
   const [step, setStep] = useState("form"); // "form" | "confirm" | "upload"
   const [amount, setAmount] = useState("");
   const [banks, setBanks] = useState([]);
@@ -283,7 +285,7 @@ export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }
 
             <div className="flex items-center justify-between text-sm">
               <span className="font-semibold text-slate-400">Atas Nama</span>
-              <span className="font-extrabold text-slate-800">{selectedBank?.account_name}</span>
+              <span className="font-extrabold text-slate-800">{user?.account_id || selectedBank?.account_name}</span>
             </div>
 
             <hr className="my-2 border-slate-200/80" />

@@ -38,7 +38,7 @@ export default function Landing() {
             <span className="bg-gradient-to-r from-indigo-600 via-blue-500 to-accent-400 bg-clip-text text-transparent">Bayar Nanti Aja.</span>
           </h1>
           <p className="mx-auto mt-5 max-w-md font-sans text-lg font-semibold text-slate-500 lg:mx-0">
-            Nikmati kemudahan transaksi tanpa kartu kredit bersama <b className="text-slate-700">KreditPay</b>. Limit hingga <b className="text-slate-700">Rp 200.000.000</b>.
+            Nikmati kemudahan transaksi tanpa kartu kredit bersama <b className="text-slate-700">Fastkredit</b>. Limit hingga <b className="text-slate-700">Rp 200.000.000</b>.
           </p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
             {user ? (
@@ -90,7 +90,7 @@ export default function Landing() {
           </div>
         ))}
       </section>
-      <footer className="pb-24 sm:pb-8 text-center font-sans text-sm font-semibold text-slate-400">© {new Date().getFullYear()} KreditPay</footer>
+      <footer className="pb-24 sm:pb-8 text-center font-sans text-sm font-semibold text-slate-400">© {new Date().getFullYear()} Fastkredit</footer>
       <FloatingInstallButton />
     </div>
   );

@@ -14,8 +14,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg"],
       manifest: {
-        name: "KreditPay",
-        short_name: "KreditPay",
+        name: "Fastkredit",
+        short_name: "Fastkredit",
         description: "Beli apapun, bayar nanti aja.",
         theme_color: "#4a3290",
         background_color: "#ffffff",

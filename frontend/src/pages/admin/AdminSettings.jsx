@@ -56,17 +56,17 @@ export default function AdminSettings() {
       setFormData({
         whatsapp_number: s.whatsapp_number || "",
         whatsapp_message: s.whatsapp_message || "",
-        app_name: s.app_name || "KreditPay",
-        cs_email: s.cs_email || "support@kreditpay.com",
+        app_name: s.app_name || "Fastkredit",
+        cs_email: s.cs_email || "support@fastkredit.com",
         cs_operational_hours: s.cs_operational_hours || "Senin - Minggu: 08:00 - 22:00 WIB",
         notif_acc_title: s.notif_acc_title || "Pengajuan Pinjaman Disetujui (ACC)",
         notif_acc_message:
           s.notif_acc_message ||
           "Selamat {name}! Pengajuan pinjaman Anda sebesar {nominal} telah disetujui (ACC) oleh tim {app_name}.\n\nSaldo limit pinjaman Anda sudah aktif dan dapat digunakan. Akun Anda kini berstatus Terverifikasi. Silakan cek saldo limit Anda di menu Beranda.",
         letter_layout_model: s.letter_layout_model || "model_1",
-        letter_company_name: s.letter_company_name || "PT KREDITPAY INDONESIA",
+        letter_company_name: s.letter_company_name || "PT FASTKREDIT INDONESIA",
         letter_title: s.letter_title || "SURAT PEMBERITAHUAN\nPERSETUJUAN PENGAJUAN PINJAMAN",
-        letter_number_prefix: s.letter_number_prefix || "KP/APP",
+        letter_number_prefix: s.letter_number_prefix || "FK/APP",
         letter_opening:
           s.letter_opening ||
           "Berdasarkan hasil proses evaluasi dan verifikasi terhadap pengajuan pinjaman yang Anda ajukan melalui {company_name}, dengan ini kami memberitahukan bahwa pengajuan pinjaman Anda telah DISETUJUI, dengan rincian sebagai berikut:",
@@ -194,7 +194,7 @@ export default function AdminSettings() {
                 rows={3}
                 value={formData.whatsapp_message}
                 onChange={handleChange}
-                placeholder="Contoh: Halo Admin KreditPay, saya butuh bantuan terkait akun saya."
+                placeholder="Contoh: Halo Admin Fastkredit, saya butuh bantuan terkait akun saya."
                 className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-800 focus:border-primary-500 focus:outline-none"
               />
               <p className="mt-1 text-xs text-slate-400 font-medium">
@@ -246,7 +246,7 @@ export default function AdminSettings() {
               name="app_name"
               value={formData.app_name}
               onChange={handleChange}
-              placeholder="KreditPay"
+              placeholder="Fastkredit"
             />
             <Input
               label="Email Dukungan CS"
@@ -254,7 +254,7 @@ export default function AdminSettings() {
               type="email"
               value={formData.cs_email}
               onChange={handleChange}
-              placeholder="support@kreditpay.com"
+              placeholder="support@fastkredit.com"
             />
             <Input
               label="Jam Operasional CS"
@@ -351,13 +351,13 @@ export default function AdminSettings() {
                   {(formData.notif_acc_title || "Pengajuan Pinjaman Disetujui (ACC)")
                     .replace(/{name}/gi, "Fitrina BR Nasution")
                     .replace(/{nominal}/gi, "Rp 50.000.000")
-                    .replace(/{app_name}/gi, formData.app_name || "KreditPay")}
+                    .replace(/{app_name}/gi, formData.app_name || "Fastkredit")}
                 </p>
                 <p className="text-xs text-slate-600 font-medium whitespace-pre-line leading-relaxed">
                   {(formData.notif_acc_message || "Pesan notifikasi...")
                     .replace(/{name}/gi, "Fitrina BR Nasution")
                     .replace(/{nominal}/gi, "Rp 50.000.000")
-                    .replace(/{app_name}/gi, formData.app_name || "KreditPay")}
+                    .replace(/{app_name}/gi, formData.app_name || "Fastkredit")}
                 </p>
                 <p className="text-[10px] text-slate-400 font-bold pt-1 border-t border-slate-100 flex items-center justify-between">
                   <span>Waktu: Otomatis sesuai jam saat Admin klik ACC</span>
@@ -443,7 +443,7 @@ export default function AdminSettings() {
                 name="letter_company_name"
                 value={formData.letter_company_name}
                 onChange={handleChange}
-                placeholder="Contoh: PT KREDITPAY INDONESIA"
+                placeholder="Contoh: PT FASTKREDIT INDONESIA"
                 helper="Ditampilkan pada KOP atas dan penutup surat."
                 required
               />

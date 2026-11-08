@@ -1,4 +1,4 @@
-# KreditPay
+# Fastkredit
 
 Fullstack: **React + Vite + JSX + PWA + TailwindCSS + Lucide + react-hot-toast** (frontend) dan **Express + MySQL** (backend). Aturan lengkap ada di `AGENTS.md`.
 
