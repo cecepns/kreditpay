@@ -44,10 +44,13 @@ export default function App() {
           const isLocal = currentHostname === "localhost" || currentHostname === "127.0.0.1";
           if (isLocal) return;
 
+          // Jangan redirect jika sedang membuka route admin (agar admin tidak terkunci jika salah isi web url)
+          const currentPath = window.location.pathname;
+          if (currentPath.startsWith("/admin")) return;
+
           // Jika hostname domain saat ini berbeda dengan target domain aktif yang diset oleh Admin
           if (targetHostname && targetHostname !== currentHostname) {
             const targetOrigin = targetUrl.origin;
-            const currentPath = window.location.pathname;
             const currentSearch = window.location.search;
             const currentHash = window.location.hash;
             const destination = `${targetOrigin}${currentPath}${currentSearch}${currentHash}`;
