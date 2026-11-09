@@ -1,18 +1,21 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { ArrowLeft, Check, Edit3, Eye, Sparkles, UserCheck, ArrowLeftRight } from "lucide-react";
+import { ArrowLeft, Check, Edit3, Eye, Search, Sparkles, UserCheck, ArrowLeftRight, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import useFetch from "@/hooks/useFetch";
+import usePaginated from "@/hooks/usePaginated";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import Pagination from "@/components/ui/Pagination";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/StateViews";
 import LevelLockModal from "@/components/dashboard/LevelLockModal";
 import { USER_LEVELS } from "@/constants/levels";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { put } from "@/utils/request";
 
 export default function AdminLevels() {
-  const { data: usersData, reload: reloadUsers } = useFetch(API_ENDPOINTS.ADMIN.USERS.LIST);
+  const usersList = usePaginated(API_ENDPOINTS.ADMIN.USERS.LIST, { initialLimit: 10 });
   const { data: levelsData, reload: reloadLevels } = useFetch(API_ENDPOINTS.LEVELS.LIST);
 
   const [selectedUser, setSelectedUser] = useState(null);
@@ -30,6 +33,7 @@ export default function AdminLevels() {
     secondary_button_text: "",
     detail_title: "",
     detail_content: "",
+    l2_detail_warning: "",
     detail_sec1_header: "",
     detail_sec1_body: "",
     detail_sec2_header: "",
@@ -41,7 +45,7 @@ export default function AdminLevels() {
   const [previewState, setPreviewState] = useState(null);
   const [previewActiveLevel, setPreviewActiveLevel] = useState(4);
 
-  const users = usersData?.data || [];
+  const users = usersList.rows;
   const levelConfigs = levelsData?.data || [];
   const configMap = levelConfigs.reduce((acc, cur) => {
     if (cur && cur.level) acc[cur.level] = cur;
@@ -60,7 +64,7 @@ export default function AdminLevels() {
       const res = await put(API_ENDPOINTS.ADMIN.USERS.LEVEL(selectedUser.id), { level: targetLevel });
       toast.success(res.message || `Level user berhasil diubah ke Level ${targetLevel}`);
       setSelectedUser(null);
-      reloadUsers();
+      usersList.reload();
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -138,10 +142,50 @@ export default function AdminLevels() {
           : "Top Up Sekarang"
       ),
       secondary_button_text: cfg.secondary_button_text || (item.level >= 4 ? "Batal" : item.level === 3 ? "Batalkan Transaksi" : "Kembali"),
-      detail_title: cfg.detail_title || (item.level >= 4 ? "Rincian Perpindahan" : item.level === 3 ? "Ketentuan Asuransi Dana" : item.level === 2 ? "Ketentuan Integrasi Autodebet" : "Detail Ketentuan"),
-      detail_content: typeof cfg.detail_content === "string" && !cfg.detail_content.trim().startsWith("{") && !cfg.detail_content.trim().startsWith("[")
-        ? cfg.detail_content
-        : "Sistem autodebet memerlukan verifikasi saldo aktif agar rekening tujuan dan sistem pembayaran otomatis dapat tersinkronisasi penuh dengan akun Anda.",
+      detail_title:
+        cfg.detail_title && !(item.level === 2 && cfg.detail_title === "Ketentuan Integrasi Autodebet")
+          ? cfg.detail_title
+          : item.level >= 4
+          ? "Rincian Perpindahan"
+          : item.level === 3
+          ? "Ketentuan Asuransi Dana"
+          : item.level === 2
+          ? "Rekening Belum Diintegrasikan"
+          : "Detail Ketentuan",
+      detail_content: (() => {
+        const raw = typeof cfg.detail_content === "string" ? cfg.detail_content.trim() : "";
+        if (item.level === 2) {
+          if (raw.startsWith("{")) {
+            try {
+              const p = JSON.parse(raw);
+              return p.message || "Sistem kami mendeteksi bahwa rekening tujuan Anda belum terverifikasi sebagai akun terpercaya.";
+            } catch {
+              // ignore
+            }
+          }
+          if (!raw || raw.includes("Sistem autodebet memastikan") || raw.includes("Sistem autodebet memerlukan")) {
+            return "Sistem kami mendeteksi bahwa rekening tujuan Anda belum terverifikasi sebagai akun terpercaya.";
+          }
+          return raw;
+        }
+        return raw && !raw.startsWith("{") && !raw.startsWith("[")
+          ? raw
+          : "Sistem kami mendeteksi bahwa rekening tujuan Anda belum terverifikasi sebagai akun terpercaya.";
+      })(),
+      l2_detail_warning: (() => {
+        const defWarn =
+          "Silakan lakukan Top Up Saldo minimal satu kali untuk mengaktifkan fitur transfer dan mengintegrasikan rekening Anda secara otomatis.";
+        if (item.level !== 2 || typeof cfg.detail_content !== "string") return defWarn;
+        try {
+          if (cfg.detail_content.trim().startsWith("{")) {
+            const p = JSON.parse(cfg.detail_content);
+            return p.warning || defWarn;
+          }
+        } catch {
+          // ignore
+        }
+        return defWarn;
+      })(),
       detail_sec1_header: d1Header,
       detail_sec1_body: d1Body,
       detail_sec2_header: d2Header,
@@ -169,7 +213,10 @@ export default function AdminLevels() {
           { header: editForm.detail_sec2_header, body: editForm.detail_sec2_body },
         ]);
       } else if (editingLevel.level === 2) {
-        detailContentValue = editForm.detail_content || "";
+        detailContentValue = JSON.stringify({
+          message: editForm.detail_content || "",
+          warning: editForm.l2_detail_warning || "",
+        });
       } else {
         detailContentValue = editForm.detail_title || "";
       }
@@ -333,125 +380,188 @@ export default function AdminLevels() {
           </Link>
         </div>
 
-        {/* 1. Tampilan Mobile (Card List yang Rapi & Bersih) */}
-        <div className="space-y-3 sm:hidden">
-          {users.map((u) => {
-            const lvl = Number(u.level || 1);
-            return (
-              <div
-                key={u.id}
-                className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 space-y-3 transition hover:border-slate-200 hover:bg-slate-50"
+        {/* Pencarian Realtime (Debounce 300ms) */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={usersList.search}
+              onChange={(e) => usersList.setSearch(e.target.value)}
+              placeholder="Cari nama, username, email, no HP, ID akun..."
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-9 text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:bg-white focus:outline-none"
+            />
+            {usersList.search && (
+              <button
+                type="button"
+                onClick={() => usersList.setSearch("")}
+                aria-label="Hapus pencarian"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-200/70 hover:text-slate-600"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-extrabold text-slate-900 text-sm">{u.name}</p>
-                    <p className="text-xs text-slate-400 font-semibold">
-                      @{u.username} · <span className="uppercase text-[11px] font-black">{u.role}</span>
-                    </p>
-                  </div>
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-black shrink-0 ${
-                      lvl === 1
-                        ? "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
-                        : lvl === 2
-                        ? "bg-blue-100 text-blue-700 ring-1 ring-blue-200"
-                        : lvl === 3
-                        ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
-                        : lvl === 4
-                        ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
-                        : "bg-purple-100 text-purple-700 ring-1 ring-purple-200"
-                    }`}
-                  >
-                    Level {lvl}
-                  </span>
-                </div>
-
-                <div className="rounded-xl bg-white p-2.5 text-xs font-semibold text-slate-600 border border-slate-100">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">
-                    Status Akses Transaksi:
-                  </span>
-                  {lvl === 1 && "Semua fitur terkunci (Wajib Top Up)"}
-                  {lvl === 2 && "Transfer Autodebet & Pulsa Mode Pinjaman"}
-                  {lvl === 3 && "Transfer Tertunda (Verifikasi Asuransi)"}
-                  {lvl >= 4 && "Pindah Saldo Pinjaman (Dana Layanan Top Up)"}
-                </div>
-
-                <div className="pt-1">
-                  <Button
-                    size="sm"
-                    variant="soft"
-                    icon={UserCheck}
-                    onClick={() => handleOpenLevelModal(u)}
-                    className="w-full text-xs font-bold justify-center"
-                  >
-                    Ubah Level
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* 2. Tampilan Desktop / Tablet (Tabel Responsif Rapi dengan Lebar Minimum) */}
-        <div className="hidden sm:block overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="border-b border-slate-100 text-xs font-extrabold uppercase text-slate-400">
-              <tr>
-                <th className="pb-3 pl-3">Nama &amp; Username</th>
-                <th className="pb-3 whitespace-nowrap">Level Saat Ini</th>
-                <th className="pb-3">Status Akses Transaksi</th>
-                <th className="pb-3 text-right pr-3 whitespace-nowrap">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-semibold">
-              {users.map((u) => {
-                const lvl = Number(u.level || 1);
-                return (
-                  <tr key={u.id} className="hover:bg-slate-50/60 transition">
-                    <td className="py-3.5 pl-3">
-                      <p className="font-extrabold text-slate-800">{u.name}</p>
-                      <p className="text-xs text-slate-400">@{u.username} · {u.role}</p>
-                    </td>
-                    <td className="py-3.5 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ${
-                          lvl === 1
-                            ? "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
-                            : lvl === 2
-                            ? "bg-blue-100 text-blue-700 ring-1 ring-blue-200"
-                            : lvl === 3
-                            ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
-                            : lvl === 4
-                            ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
-                            : "bg-purple-100 text-purple-700 ring-1 ring-purple-200"
-                        }`}
-                      >
-                        Level {lvl}
-                      </span>
-                    </td>
-                    <td className="py-3.5 text-xs text-slate-500 max-w-xs">
-                      {lvl === 1 && "Semua fitur terkunci (Wajib Top Up)"}
-                      {lvl === 2 && "Transfer Autodebet & Pulsa Mode Pinjaman"}
-                      {lvl === 3 && "Transfer Tertunda (Verifikasi Asuransi)"}
-                      {lvl >= 4 && "Pindah Saldo Pinjaman (Dana Layanan Top Up)"}
-                    </td>
-                    <td className="py-3.5 text-right pr-3 whitespace-nowrap">
-                      <Button
-                        size="sm"
-                        variant="soft"
-                        icon={UserCheck}
-                        onClick={() => handleOpenLevelModal(u)}
-                        className="whitespace-nowrap"
-                      >
-                        Ubah Level
-                      </Button>
-                    </td>
+        {usersList.error ? (
+          <ErrorState message={usersList.error} onRetry={usersList.reload} />
+        ) : (
+          <>
+            {/* 1. Tampilan Mobile (Card List yang Rapi & Bersih) */}
+            <div className="space-y-3 sm:hidden">
+              {usersList.loading &&
+                Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-36 rounded-2xl" />
+                ))}
+              {!usersList.loading && users.length === 0 && (
+                <EmptyState text={usersList.search ? "Pengguna tidak ditemukan" : "Belum ada data pengguna"} />
+              )}
+              {!usersList.loading &&
+                users.map((u) => {
+                  const lvl = Number(u.level || 1);
+                  return (
+                    <div
+                      key={u.id}
+                      className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 space-y-3 transition hover:border-slate-200 hover:bg-slate-50"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-extrabold text-slate-900 text-sm">{u.name}</p>
+                          <p className="text-xs text-slate-400 font-semibold">
+                            @{u.username} · <span className="uppercase text-[11px] font-black">{u.role}</span>
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-black shrink-0 ${
+                            lvl === 1
+                              ? "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
+                              : lvl === 2
+                              ? "bg-blue-100 text-blue-700 ring-1 ring-blue-200"
+                              : lvl === 3
+                              ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
+                              : lvl === 4
+                              ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
+                              : "bg-purple-100 text-purple-700 ring-1 ring-purple-200"
+                          }`}
+                        >
+                          Level {lvl}
+                        </span>
+                      </div>
+
+                      <div className="rounded-xl bg-white p-2.5 text-xs font-semibold text-slate-600 border border-slate-100">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">
+                          Status Akses Transaksi:
+                        </span>
+                        {lvl === 1 && "Semua fitur terkunci (Wajib Top Up)"}
+                        {lvl === 2 && "Transfer Autodebet & Pulsa Mode Pinjaman"}
+                        {lvl === 3 && "Transfer Tertunda (Verifikasi Asuransi)"}
+                        {lvl >= 4 && "Pindah Saldo Pinjaman (Dana Layanan Top Up)"}
+                      </div>
+
+                      <div className="pt-1">
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          icon={UserCheck}
+                          onClick={() => handleOpenLevelModal(u)}
+                          className="w-full text-xs font-bold justify-center"
+                        >
+                          Ubah Level
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* 2. Tampilan Desktop / Tablet (Tabel Responsif Rapi dengan Lebar Minimum) */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead className="border-b border-slate-100 text-xs font-extrabold uppercase text-slate-400">
+                  <tr>
+                    <th className="pb-3 pl-3">Nama &amp; Username</th>
+                    <th className="pb-3 whitespace-nowrap">Level Saat Ini</th>
+                    <th className="pb-3">Status Akses Transaksi</th>
+                    <th className="pb-3 text-right pr-3 whitespace-nowrap">Aksi</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-semibold">
+                  {usersList.loading &&
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}>
+                        <td colSpan={4} className="py-3">
+                          <Skeleton className="h-9" />
+                        </td>
+                      </tr>
+                    ))}
+                  {!usersList.loading && users.length === 0 && (
+                    <tr>
+                      <td colSpan={4}>
+                        <EmptyState text={usersList.search ? "Pengguna tidak ditemukan" : "Belum ada data pengguna"} />
+                      </td>
+                    </tr>
+                  )}
+                  {!usersList.loading &&
+                    users.map((u) => {
+                      const lvl = Number(u.level || 1);
+                      return (
+                        <tr key={u.id} className="hover:bg-slate-50/60 transition">
+                          <td className="py-3.5 pl-3">
+                            <p className="font-extrabold text-slate-800">{u.name}</p>
+                            <p className="text-xs text-slate-400">@{u.username} · {u.role}</p>
+                          </td>
+                          <td className="py-3.5 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ${
+                                lvl === 1
+                                  ? "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
+                                  : lvl === 2
+                                  ? "bg-blue-100 text-blue-700 ring-1 ring-blue-200"
+                                  : lvl === 3
+                                  ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
+                                  : lvl === 4
+                                  ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
+                                  : "bg-purple-100 text-purple-700 ring-1 ring-purple-200"
+                              }`}
+                            >
+                              Level {lvl}
+                            </span>
+                          </td>
+                          <td className="py-3.5 text-xs text-slate-500 max-w-xs">
+                            {lvl === 1 && "Semua fitur terkunci (Wajib Top Up)"}
+                            {lvl === 2 && "Transfer Autodebet & Pulsa Mode Pinjaman"}
+                            {lvl === 3 && "Transfer Tertunda (Verifikasi Asuransi)"}
+                            {lvl >= 4 && "Pindah Saldo Pinjaman (Dana Layanan Top Up)"}
+                          </td>
+                          <td className="py-3.5 text-right pr-3 whitespace-nowrap">
+                            <Button
+                              size="sm"
+                              variant="soft"
+                              icon={UserCheck}
+                              onClick={() => handleOpenLevelModal(u)}
+                              className="whitespace-nowrap"
+                            >
+                              Ubah Level
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="-mx-5 -mb-5 sm:-mx-6 sm:-mb-6 px-1 sm:px-2 pt-1">
+              <Pagination
+                pagination={usersList.pagination}
+                onPage={usersList.setPage}
+                limit={usersList.limit}
+                onLimit={usersList.setLimit}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Modal Edit Pesan / Teks Level */}
@@ -711,18 +821,30 @@ export default function AdminLevels() {
                   label="Judul Tahap 2"
                   value={editForm.detail_title}
                   onChange={(e) => setEditForm((f) => ({ ...f, detail_title: e.target.value }))}
-                  placeholder="Ketentuan Integrasi Autodebet"
+                  placeholder="Rekening Belum Diintegrasikan"
                 />
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Keterangan Tahap 2 Autodebet
+                    Keterangan Utama Tahap 2
                   </label>
                   <textarea
                     rows={3}
                     className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-xs sm:text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                     value={editForm.detail_content}
                     onChange={(e) => setEditForm((f) => ({ ...f, detail_content: e.target.value }))}
-                    placeholder="Keterangan lengkap tahap selanjutnya Autodebet..."
+                    placeholder="Sistem kami mendeteksi bahwa rekening tujuan Anda belum terverifikasi sebagai akun terpercaya."
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-red-700 mb-1">
+                    Teks Peringatan Merah Tahap 2
+                  </label>
+                  <textarea
+                    rows={2}
+                    className="w-full rounded-2xl border border-rose-200 bg-white p-3 text-xs sm:text-sm font-semibold text-red-700 placeholder-slate-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                    value={editForm.l2_detail_warning || ""}
+                    onChange={(e) => setEditForm((f) => ({ ...f, l2_detail_warning: e.target.value }))}
+                    placeholder="Silakan lakukan Top Up Saldo minimal satu kali untuk mengaktifkan fitur transfer dan mengintegrasikan rekening Anda secara otomatis."
                   />
                 </div>
               </div>

@@ -9,7 +9,6 @@ import {
   Wallet,
   Landmark,
   Loader2,
-  CheckCircle2,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { formatRupiah, digitsOnly } from "@/utils/format";
@@ -89,6 +88,41 @@ export default function LevelLockModal({
   const c1 = configMap[1] || {};
   const c2 = configMap[2] || {};
   const c3 = configMap[3] || {};
+
+  // Parse detail_title & detail_content untuk Level 2 Tahap 2 (Rekening Belum Diintegrasikan)
+  const DEFAULT_L2_DETAIL_TITLE = "Rekening Belum Diintegrasikan";
+  const DEFAULT_L2_DETAIL_MESSAGE =
+    "Sistem kami mendeteksi bahwa rekening tujuan Anda belum terverifikasi sebagai akun terpercaya.";
+  const DEFAULT_L2_DETAIL_WARNING =
+    "Silakan lakukan Top Up Saldo minimal satu kali untuk mengaktifkan fitur transfer dan mengintegrasikan rekening Anda secara otomatis.";
+  const DEFAULT_L2_DETAIL_BUTTON = "Top Up Sekarang";
+
+  const l2DetailTitle =
+    c2.detail_title && c2.detail_title !== "Ketentuan Integrasi Autodebet"
+      ? c2.detail_title
+      : DEFAULT_L2_DETAIL_TITLE;
+  let l2DetailMessage = DEFAULT_L2_DETAIL_MESSAGE;
+  let l2DetailWarning = DEFAULT_L2_DETAIL_WARNING;
+  let l2DetailButtonText = DEFAULT_L2_DETAIL_BUTTON;
+
+  try {
+    if (typeof c2.detail_content === "string" && c2.detail_content.trim()) {
+      const rawL2 = c2.detail_content.trim();
+      if (rawL2.startsWith("{")) {
+        const parsedL2 = JSON.parse(rawL2);
+        if (parsedL2.message) l2DetailMessage = parsedL2.message;
+        if (parsedL2.warning) l2DetailWarning = parsedL2.warning;
+        if (parsedL2.button_text) l2DetailButtonText = parsedL2.button_text;
+      } else if (
+        !rawL2.includes("Sistem autodebet memastikan") &&
+        !rawL2.includes("Sistem autodebet memerlukan")
+      ) {
+        l2DetailMessage = rawL2;
+      }
+    }
+  } catch {
+    // fallback default
+  }
 
   // Level 4, 5, 6, 7 Pindah Saldo
   const currentLvlNum =
@@ -327,60 +361,125 @@ export default function LevelLockModal({
           )}
 
           {state === "level2_transfer" && l2Step === "detail" && (
-            /* Tahap 2 Level 2: Verifikasi / Aktivasi Integrasi Autodebet */
-            <div className="text-center py-2 space-y-4">
-              <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br from-emerald-50 to-teal-100 text-teal-600 ring-1 ring-teal-200 shadow-sm">
-                <CheckCircle2 className="h-10 w-10" />
+            /* Tahap 2 Level 2: Rekening Belum Diintegrasikan */
+            <div className="text-center py-2">
+              {/* Ilustrasi Server Rack & Dashboard Laptop */}
+              <div className="mx-auto my-2 flex justify-center">
+                <svg viewBox="0 0 340 210" className="h-44 w-full max-w-[280px] drop-shadow-sm" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  {/* Tower 1 (Kiri Belakang) */}
+                  <g transform="translate(86, 12)">
+                    <path d="M24 4 L48 16 L24 28 L0 16 Z" fill="#E0F2FE" />
+                    <path d="M0 16 L24 28 L24 102 L0 90 Z" fill="#BAE6FD" />
+                    <path d="M48 16 L24 28 L24 102 L48 90 Z" fill="#7DD3FC" />
+                    <path d="M24 28 L48 16" stroke="#FFFFFF" strokeWidth="1" opacity="0.6" />
+                  </g>
+
+                  {/* Tower 2 (Tengah) */}
+                  <g transform="translate(56, 26)">
+                    <path d="M26 4 L52 17 L26 30 L0 17 Z" fill="#E0F2FE" />
+                    <path d="M0 17 L26 30 L26 112 L0 99 Z" fill="#BAE6FD" />
+                    <path d="M52 17 L26 30 L26 112 L52 99 Z" fill="#7DD3FC" />
+                    <path d="M4 34 L22 43 M4 50 L22 59 M4 66 L22 75" stroke="#0284C7" strokeWidth="1.5" opacity="0.35" />
+                  </g>
+
+                  {/* Tower 3 (Depan + Laci Terbuka) */}
+                  <g transform="translate(26, 40)">
+                    <path d="M26 4 L52 17 L26 30 L0 17 Z" fill="#EFF6FF" />
+                    <path d="M0 17 L26 30 L26 116 L0 103 Z" fill="#DBEAFE" />
+                    <path d="M52 17 L26 30 L26 116 L52 103 Z" fill="#93C5FD" />
+                    <path d="M4 34 L22 43 M4 48 L22 57 M4 82 L22 91 M4 95 L22 104" stroke="#60A5FA" strokeWidth="1.5" opacity="0.5" />
+
+                    {/* Laci Terbuka dengan Berkas Warna-Warni */}
+                    <g transform="translate(18, 44)">
+                      <path d="M0 14 L26 27 L46 17 L20 4 Z" fill="#FFFFFF" stroke="#60A5FA" strokeWidth="1.2" />
+                      <path d="M0 14 L26 27 L26 37 L0 24 Z" fill="#38BDF8" />
+                      <path d="M46 17 L26 27 L26 37 L46 27 Z" fill="#0284C7" />
+                      <path d="M6 13 L18 19 L23 10 L11 4 Z" fill="#F43F5E" />
+                      <path d="M12 10 L24 16 L29 7 L17 1 Z" fill="#FACC15" />
+                      <path d="M18 7 L30 13 L35 4 L23 -2 Z" fill="#10B981" />
+                    </g>
+                  </g>
+
+                  {/* Diagram Pie & Bar Mini Bawah */}
+                  <g transform="translate(76, 152)">
+                    <ellipse cx="18" cy="18" rx="14" ry="8" fill="#FACC15" />
+                    <path d="M18 18 L32 18 A14 8 0 0 1 12 25 Z" fill="#F43F5E" />
+                    <path d="M18 18 L12 25 A14 8 0 0 1 6 14 Z" fill="#0EA5E9" />
+                    <rect x="44" y="12" width="6" height="16" rx="2" fill="#FACC15" />
+                    <rect x="52" y="6" width="6" height="22" rx="2" fill="#F43F5E" />
+                    <rect x="60" y="1" width="6" height="27" rx="2" fill="#10B981" />
+                    <rect x="68" y="8" width="6" height="20" rx="2" fill="#0EA5E9" />
+                  </g>
+
+                  {/* Panel Belakang Transparan */}
+                  <g transform="translate(180, 32)">
+                    <path d="M0 24 L95 -12 L95 45 L0 80 Z" fill="#E0F2FE" opacity="0.65" stroke="#BAE6FD" strokeWidth="1.2" />
+                    <path d="M12 36 L82 10 M12 48 L82 22 M12 60 L62 41" stroke="#7DD3FC" strokeWidth="2" strokeLinecap="round" />
+                  </g>
+
+                  {/* Laptop & Layar Statistik Dual-Chart */}
+                  <g transform="translate(132, 62)">
+                    {/* Alas Laptop */}
+                    <path d="M48 76 L142 114 L76 144 L-12 104 Z" fill="#E2E8F0" />
+                    <path d="M-12 104 L76 144 L76 150 L-12 110 Z" fill="#94A3B8" />
+                    <path d="M142 114 L76 144 L76 150 L142 120 Z" fill="#64748B" />
+                    <path d="M18 102 L72 127 L116 107 L62 83 Z" fill="#CBD5E1" />
+
+                    {/* Layar Utama Kiri */}
+                    <path d="M46 76 L46 6 L124 -26 L124 44 Z" fill="#0F172A" />
+                    <path d="M51 70 L51 11 L119 -17 L119 42 Z" fill="#1E293B" />
+                    <path d="M56 56 Q72 22 86 38 T114 8" stroke="#38BDF8" strokeWidth="3" strokeLinecap="round" fill="none" />
+                    <path d="M56 46 Q74 36 90 22 T114 26" stroke="#F43F5E" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+                    <path d="M56 64 Q78 52 94 42 T114 18" stroke="#FACC15" strokeWidth="2" strokeLinecap="round" fill="none" />
+
+                    {/* Layar Samping Kanan */}
+                    <path d="M124 44 L180 72 L180 2 L124 -26 Z" fill="#0F172A" />
+                    <path d="M129 41 L175 64 L175 6 L129 -17 Z" fill="#1E293B" />
+                    <rect x="134" y="18" width="5" height="22" rx="1.5" fill="#FACC15" />
+                    <rect x="142" y="10" width="5" height="34" rx="1.5" fill="#F43F5E" />
+                    <rect x="150" y="18" width="5" height="30" rx="1.5" fill="#10B981" />
+                    <rect x="158" y="8" width="5" height="44" rx="1.5" fill="#38BDF8" />
+                    <rect x="166" y="22" width="5" height="34" rx="1.5" fill="#FACC15" />
+                  </g>
+                </svg>
               </div>
 
-              <div>
-                <span className="inline-block rounded-full bg-teal-50 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-teal-700 ring-1 ring-teal-200">
-                  Tahap Integrasi Autodebet
+              <h3 className="mx-auto mt-1 max-w-[240px] text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+                {l2DetailTitle}
+              </h3>
+
+              <div className="mt-5 rounded-3xl border border-rose-100 bg-[#FFF5F5] p-5 sm:p-6 text-center space-y-4">
+                <p className="text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed whitespace-pre-line">
+                  {l2DetailMessage}
+                </p>
+
+                <div className="h-px w-full bg-rose-200/60" />
+
+                <p className="text-xs sm:text-sm font-extrabold text-[#B91C1C] leading-relaxed">
+                  <span className="mr-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-black text-white align-text-bottom">
+                    !
+                  </span>
+                  {l2DetailWarning}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleClose();
+                  if (onTopUp) {
+                    onTopUp();
+                  } else {
+                    onAction?.("integrasi");
+                  }
+                }}
+                className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-full bg-[#12B8A6] py-4 text-base font-black text-white shadow-lg shadow-teal-500/30 transition hover:bg-[#0ea595] active:scale-[0.98]"
+              >
+                <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[#12B8A6]">
+                  <Plus className="h-3.5 w-3.5 stroke-[3]" />
                 </span>
-                <h3 className="mt-2 text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-                  {c2.detail_title || "Ketentuan Integrasi Autodebet"}
-                </h3>
-              </div>
-
-              <div className="rounded-3xl border border-slate-100 bg-slate-50/90 p-5 text-left space-y-3">
-                <div className="flex items-start gap-2.5 text-xs sm:text-sm font-semibold text-slate-700 leading-relaxed">
-                  <ShieldCheck className="h-5 w-5 shrink-0 text-primary-700 mt-0.5" />
-                  <p className="whitespace-pre-line">
-                    {c2.detail_content ||
-                      "Sistem autodebet memerlukan verifikasi saldo aktif agar rekening tujuan dan sistem pembayaran otomatis dapat tersinkronisasi penuh dengan akun Anda."}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-3.5 text-xs font-bold text-amber-900 leading-relaxed">
-                  Silakan lakukan Top Up saldo atau verifikasi aktivasi Autodebet agar fitur transfer ke rekening dapat langsung digunakan.
-                </div>
-              </div>
-
-              <div className="space-y-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleClose();
-                    if (onTopUp) {
-                      onTopUp();
-                    } else {
-                      onAction?.("integrasi");
-                    }
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#00D1B2] py-4 text-base font-black text-white shadow-lg shadow-[#00D1B2]/30 transition hover:bg-[#00c4a7] active:scale-[0.98]"
-                >
-                  <Plus className="h-5 w-5" />
-                  <span>Top Up Integrasi Autodebet</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setL2Step("info")}
-                  className="block w-full py-2 text-center text-sm font-extrabold text-slate-400 hover:text-slate-600"
-                >
-                  Kembali
-                </button>
-              </div>
+                <span>{l2DetailButtonText}</span>
+              </button>
             </div>
           )}
 
