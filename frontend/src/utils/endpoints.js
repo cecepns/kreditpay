@@ -1,8 +1,9 @@
 export const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "https://api.kingcreativestudio.my.id/kreditpay/api";
+  // import.meta.env.VITE_API_URL || "https://api.kingcreativestudio.my.id/kreditpay/api";
+  import.meta.env.VITE_API_URL || "https://api.fastkredit.id/api";
 
 export const FILE_BASE_URL =
-  import.meta.env.VITE_FILE_URL || "https://api.kingcreativestudio.my.id/kreditpay";
+  import.meta.env.VITE_FILE_URL || "https://api.fastkredit.id";
 
 export const API_ENDPOINTS = {
   AUTH: {

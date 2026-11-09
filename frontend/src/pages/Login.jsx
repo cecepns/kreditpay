@@ -5,6 +5,7 @@ import { Eye, EyeOff } from "lucide-react";
 import useAuth from "@/hooks/useAuth";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import Logo from "@/components/Logo";
 import LoginIllustration from "@/components/LoginIllustration";
 import FloatingInstallButton from "@/components/FloatingInstallButton";
 
@@ -43,6 +44,9 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-slate-100">
       <form onSubmit={submit} noValidate className="mx-auto flex min-h-screen max-w-md flex-col bg-white px-6 py-10 shadow-xl">
+        <div className="mb-4">
+          <Logo size="md" />
+        </div>
         <h1 className="text-3xl font-extrabold text-slate-900">Selamat Datang! 👋</h1>
         <p className="mt-1 font-semibold text-slate-500">Masuk untuk mulai bertransaksi.</p>
         <div className="my-8"><LoginIllustration /></div>

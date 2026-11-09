@@ -5,6 +5,7 @@ import useFetch from "@/hooks/useFetch";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import BottomNav from "@/components/layout/BottomNav";
 import HelpButton from "@/components/layout/HelpButton";
+import logoIcon from "@/assets/logo-icon.png";
 
 const TITLES = { "/app/riwayat": "Riwayat Transaksi", "/app/notifikasi": "Notifikasi", "/app/akun": "Akun Saya" };
 
@@ -32,9 +33,14 @@ export default function UserLayout() {
       <div className="relative mx-auto min-h-screen max-w-xl bg-slate-50 pb-44 shadow-xl">
         <header className={`rounded-b-[2.5rem] bg-gradient-to-br from-primary-700 to-primary-900 px-6 pt-8 text-white ${title ? "pb-16" : "pb-32"}`}>
           <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-white/80">Selamat Datang,</p>
-              <h1 className="text-xl font-extrabold uppercase tracking-wide">{user.name}</h1>
+            <div className="flex items-center gap-3">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/10 p-1.5 ring-1 ring-white/20 backdrop-blur-md">
+                <img src={logoIcon} alt="Fastkredit" className="h-full w-full object-contain" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white/75">Selamat Datang,</p>
+                <h1 className="text-lg font-extrabold uppercase tracking-wide leading-tight">{user.name}</h1>
+              </div>
             </div>
             <Link to="/app/notifikasi" aria-label="Notifikasi" className="relative grid h-12 w-12 place-items-center rounded-2xl bg-white/15">
               <Bell className="h-6 w-6" fill="currentColor" />

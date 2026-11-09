@@ -1,18 +1,72 @@
-import { ArrowUpRight } from "lucide-react";
+import logoHorizontal from "@/assets/logo-horizontal.png";
+import logoStacked from "@/assets/logo.png";
+import logoIcon from "@/assets/logo-icon.png";
 
-export default function Logo({ size = "md" }) {
-  const box = size === "lg" ? "h-12 w-12" : size === "sm" ? "h-8 w-8" : "h-9 w-9 sm:h-10 sm:w-10";
-  const icon = size === "lg" ? "h-6 w-6" : size === "sm" ? "h-4 w-4" : "h-5 w-5 sm:h-6 sm:w-6";
-  const text = size === "lg" ? "text-2xl" : size === "sm" ? "text-lg" : "text-xl sm:text-2xl";
+export default function Logo({
+  size = "md",
+  variant = "horizontal", // "horizontal" | "stacked" | "icon"
+  className = "",
+  alt = "Fastkredit",
+}) {
+  const horizontalHeights = {
+    xs: "h-6",
+    sm: "h-8 sm:h-9",
+    md: "h-9 sm:h-10",
+    lg: "h-12 sm:h-14",
+    xl: "h-16 sm:h-20",
+  };
 
+  const stackedHeights = {
+    xs: "h-9",
+    sm: "h-12 sm:h-14",
+    md: "h-16 sm:h-20",
+    lg: "h-24 sm:h-28",
+    xl: "h-32 sm:h-36",
+  };
+
+  const iconSizes = {
+    xs: "h-6 w-6",
+    sm: "h-8 w-8",
+    md: "h-10 w-10",
+    lg: "h-14 w-14",
+    xl: "h-20 w-20",
+  };
+
+  if (variant === "icon") {
+    const s = iconSizes[size] || iconSizes.md;
+    return (
+      <span className={`inline-flex items-center select-none ${className}`}>
+        <img
+          src={logoIcon}
+          alt={alt}
+          className={`${s} object-contain transition hover:opacity-95`}
+        />
+      </span>
+    );
+  }
+
+  if (variant === "stacked") {
+    const h = stackedHeights[size] || stackedHeights.md;
+    return (
+      <span className={`inline-flex items-center select-none ${className}`}>
+        <img
+          src={logoStacked}
+          alt={alt}
+          className={`${h} w-auto object-contain transition hover:opacity-95`}
+        />
+      </span>
+    );
+  }
+
+  // Default: horizontal (monogram on left, text on right)
+  const h = horizontalHeights[size] || horizontalHeights.md;
   return (
-    <span className="inline-flex items-center gap-2 sm:gap-3 font-display select-none">
-      <span className={`grid ${box} place-items-center rounded-xl bg-primary-700 text-white shadow-xs`}>
-        <ArrowUpRight className={icon} strokeWidth={3} />
-      </span>
-      <span className={`${text} font-black text-slate-800 tracking-tight`}>
-        Fast<span className="bg-gradient-to-r from-indigo-500 to-accent-400 bg-clip-text text-transparent">kredit</span>
-      </span>
+    <span className={`inline-flex items-center select-none ${className}`}>
+      <img
+        src={logoHorizontal}
+        alt={alt}
+        className={`${h} w-auto object-contain transition hover:opacity-95`}
+      />
     </span>
   );
 }

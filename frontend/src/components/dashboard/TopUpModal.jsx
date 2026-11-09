@@ -285,7 +285,19 @@ export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }
 
             <div className="flex items-center justify-between text-sm">
               <span className="font-semibold text-slate-400">Atas Nama</span>
-              <span className="font-extrabold text-slate-800">{user?.account_id || selectedBank?.account_name}</span>
+              <button
+                type="button"
+                onClick={() =>
+                  handleCopy(
+                    user?.account_id || selectedBank?.account_name || (user?.id ? `USR${String(user.id).padStart(6, "0")}` : "-"),
+                    "Atas Nama"
+                  )
+                }
+                className="group flex items-center gap-1.5 font-extrabold text-slate-800 hover:text-primary-700"
+              >
+                <span>{user?.account_id || selectedBank?.account_name || (user?.id ? `USR${String(user.id).padStart(6, "0")}` : "-")}</span>
+                <Copy className="h-3.5 w-3.5 text-slate-400 group-hover:text-primary-600" />
+              </button>
             </div>
 
             <hr className="my-2 border-slate-200/80" />

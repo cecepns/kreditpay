@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import useAuth from "@/hooks/useAuth";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import Logo from "@/components/Logo";
 import { digitsOnly } from "@/utils/format";
 
 const FIELDS = [
@@ -53,6 +54,9 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-slate-100">
       <form onSubmit={submit} noValidate className="mx-auto min-h-screen max-w-md bg-white px-6 py-10 shadow-xl">
+        <div className="mb-4">
+          <Logo size="md" />
+        </div>
         <h1 className="text-3xl font-extrabold text-slate-900">Buat Akun 🚀</h1>
         <p className="mb-8 mt-1 font-semibold text-slate-500">Daftar gratis, langsung dapat limit Pinjaman.</p>
         <div className="space-y-4">
