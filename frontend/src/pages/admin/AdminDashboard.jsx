@@ -105,7 +105,7 @@ export default function AdminDashboard() {
           </Link>
 
           <Link
-            to="/admin/users"
+            to="/admin/banks"
             className="group flex flex-col items-center justify-center rounded-3xl bg-white p-5 text-center shadow-sm ring-1 ring-slate-100 transition hover:shadow-md hover:ring-primary-300"
           >
             <span className="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-50 text-emerald-600 transition group-hover:scale-110">

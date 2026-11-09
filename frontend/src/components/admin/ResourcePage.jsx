@@ -14,8 +14,9 @@ import { confirmToast } from "@/utils/confirm";
  * search realtime (debounce 300ms), pagination backend, modal create/edit, konfirmasi delete via toast.
  * `form` & `api` dihilangkan untuk halaman read-only.
  */
-export default function ResourcePage({ title, subtitle, listUrl, columns, params, form, api, filters, headerActions, extraActions }) {
+export default function ResourcePage({ title, subtitle, listUrl, columns, params, form, api, filters, headerActions, extraActions, canCreate = true }) {
   const list = usePaginated(listUrl, { params });
+  const showCreate = Boolean(form) && (typeof canCreate === "function" ? canCreate(list) : canCreate !== false);
   const [modal, setModal] = useState(null);
   const [values, setValues] = useState({});
   const [errors, setErrors] = useState({});
@@ -65,7 +66,7 @@ export default function ResourcePage({ title, subtitle, listUrl, columns, params
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {headerActions}
-          {form && <Button icon={Plus} onClick={() => openModal("create")}>Tambah</Button>}
+          {showCreate && <Button icon={Plus} onClick={() => openModal("create")}>Tambah</Button>}
         </div>
       </div>
 
@@ -99,6 +100,11 @@ export default function ResourcePage({ title, subtitle, listUrl, columns, params
       {form && (
         <Modal open={!!modal} onClose={closeModal} title={`${modal?.mode === "edit" ? "Edit" : "Tambah"} ${title}`}>
           <form onSubmit={submit} className="space-y-4" noValidate>
+            {form.notice && (
+              <div className="rounded-2xl bg-amber-50 p-3.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200/70">
+                {form.notice}
+              </div>
+            )}
             {form.fields.map((f) => (
               <Input
                 key={f.name}

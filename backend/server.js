@@ -1190,6 +1190,10 @@ app.get("/api/admin/banks", adminOnly, wrap((req, res) =>
 ));
 
 app.post("/api/admin/banks", adminOnly, wrap(async (req, res) => {
+  const [[cnt]] = await db.query("SELECT COUNT(*) AS total FROM bank_accounts");
+  if (Number(cnt?.total || 0) >= 1) {
+    return fail(res, 400, "Hanya diperbolehkan 1 data rekening bank. Silakan edit data rekening yang sudah ada.");
+  }
   const { error, data } = parseBank(req.body);
   if (error) return fail(res, 400, error);
   const [r] = await db.query(
