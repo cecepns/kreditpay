@@ -34,7 +34,7 @@ export default function UserLayout() {
         <header className={`rounded-b-[2.5rem] bg-gradient-to-br from-primary-700 to-primary-900 px-6 pt-8 text-white ${title ? "pb-16" : "pb-32"}`}>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/10 p-1.5 ring-1 ring-white/20 backdrop-blur-md">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white p-1.5 shadow-md ring-1 ring-white/80">
                 <img src={logoIcon} alt="Fastkredit" className="h-full w-full object-contain" />
               </div>
               <div>

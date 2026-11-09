@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Check, Clock, Eye, FileImage, Search, X } from "lucide-react";
+import { Check, Clock, FileImage, Search, X } from "lucide-react";
 import usePaginated from "@/hooks/usePaginated";
 import DataTable from "@/components/admin/DataTable";
 import Pagination from "@/components/ui/Pagination";
@@ -11,10 +12,17 @@ import { put } from "@/utils/request";
 import { confirmToast } from "@/utils/confirm";
 import { fileUrl, formatDateTime, formatRupiah } from "@/utils/format";
 
+const ALLOWED_STATUSES = ["pending", "success", "failed"];
+const ALLOWED_TYPES = ["topup", "ppob", "transfer_out", "transfer_in"];
+
 export default function AdminTransactions() {
-  const [statusFilter, setStatusFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [previewProofTx, setPreviewProofTx] = useState(null);
+
+  const rawStatus = searchParams.get("status") || "";
+  const rawType = searchParams.get("type") || "";
+  const statusFilter = ALLOWED_STATUSES.includes(rawStatus) ? rawStatus : "";
+  const typeFilter = ALLOWED_TYPES.includes(rawType) ? rawType : "";
 
   const list = usePaginated(API_ENDPOINTS.ADMIN.TRANSACTIONS.LIST, {
     params: {
@@ -22,6 +30,14 @@ export default function AdminTransactions() {
       ...(typeFilter ? { type: typeFilter } : {}),
     },
   });
+
+  const handleFilterChange = (key, value) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setSearchParams(next, { replace: true });
+    list.setPage(1);
+  };
 
   const handleUpdateStatus = async (row, newStatus) => {
     const label = newStatus === "success" ? "Setujui" : "Tolak";
@@ -121,11 +137,30 @@ export default function AdminTransactions() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-800">Transaksi &amp; Pengajuan</h1>
-        <p className="text-sm font-semibold text-slate-500">
-          Kelola pesanan pulsa, transaksi PPOB, top up saldo, verifikasi bukti transfer, dan proses persetujuan manual.
-        </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-800">
+            {typeFilter === "topup" ? "Pengajuan Saldo" : "Transaksi & Pengajuan"}
+          </h1>
+          <p className="text-sm font-semibold text-slate-500">
+            {typeFilter === "topup"
+              ? "Verifikasi bukti transfer pengajuan top up saldo dan proses persetujuan manual."
+              : "Kelola pesanan pulsa, transaksi PPOB, top up saldo, verifikasi bukti transfer, dan proses persetujuan manual."}
+          </p>
+        </div>
+        {(statusFilter || typeFilter) && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchParams({}, { replace: true });
+              list.setPage(1);
+            }}
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3.5 py-1.5 text-xs font-extrabold text-slate-700 hover:bg-slate-200 transition"
+          >
+            <X className="h-3.5 w-3.5" />
+            Reset Filter
+          </button>
+        )}
       </div>
 
       <div className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-100">
@@ -136,14 +171,24 @@ export default function AdminTransactions() {
               value={list.search}
               onChange={(e) => list.setSearch(e.target.value)}
               placeholder="Cari referensi / user..."
-              className="w-full rounded-2xl border border-slate-100 bg-slate-50 py-2.5 pl-10 pr-4 text-sm font-semibold focus:border-primary-500 focus:outline-none"
+              className="w-full rounded-2xl border border-slate-100 bg-slate-50 py-2.5 pl-10 pr-9 text-sm font-semibold focus:border-primary-500 focus:outline-none"
             />
+            {list.search && (
+              <button
+                type="button"
+                onClick={() => list.setSearch("")}
+                aria-label="Hapus pencarian"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-200/70 hover:text-slate-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => handleFilterChange("status", e.target.value)}
               className="w-full sm:w-auto rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-xs font-extrabold text-slate-700 focus:outline-none"
             >
               <option value="">Semua Status</option>
@@ -154,11 +199,11 @@ export default function AdminTransactions() {
 
             <select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
+              onChange={(e) => handleFilterChange("type", e.target.value)}
               className="w-full sm:w-auto rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-xs font-extrabold text-slate-700 focus:outline-none"
             >
               <option value="">Semua Jenis</option>
-              <option value="topup">Top Up Saldo</option>
+              <option value="topup">Pengajuan Saldo (Top Up)</option>
               <option value="ppob">Pulsa &amp; Tagihan</option>
               <option value="transfer_out">Transfer Keluar</option>
               <option value="transfer_in">Transfer Masuk</option>
