@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import toast from "react-hot-toast";
 import {
   Banknote,
   Plus,
@@ -7,7 +8,8 @@ import {
   RotateCcw,
   Wallet,
   Landmark,
-  AlertCircle,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { formatRupiah, digitsOnly } from "@/utils/format";
@@ -21,11 +23,25 @@ export default function LevelLockModal({
   onTopUp,
   onAction,
 }) {
+  const [l2Step, setL2Step] = useState("info"); // "info" | "detail"
   const [l3Step, setL3Step] = useState("tertunda"); // "tertunda" | "detail"
   const [pindahStep, setPindahStep] = useState("info"); // "info" | "konfirmasi" | "rincian"
   const [pindahNominal, setPindahNominal] = useState("10000");
+  const [loadingStage, setLoadingStage] = useState(null);
+  const transitionTimerRef = useRef(null);
+
+  const clearTransition = () => {
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+    setLoadingStage(null);
+  };
 
   useEffect(() => {
+    clearTransition();
+    setL2Step("info");
+
     if (state === "level3_detail") {
       setL3Step("detail");
     } else {
@@ -39,7 +55,29 @@ export default function LevelLockModal({
       setPindahStep("info");
       setPindahNominal("10000");
     }
+
+    return () => {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
+      }
+    };
   }, [state]);
+
+  const startDelayedTransition = ({ key, title, subtitle }, nextFn) => {
+    clearTransition();
+    setLoadingStage({ key, title, subtitle });
+    transitionTimerRef.current = setTimeout(() => {
+      transitionTimerRef.current = null;
+      setLoadingStage(null);
+      nextFn();
+    }, 5000);
+  };
+
+  const handleClose = () => {
+    clearTransition();
+    onClose?.();
+  };
 
   if (!state) return null;
 
@@ -106,149 +144,245 @@ export default function LevelLockModal({
     (typeof state === "string" && state.startsWith("level") && Number(state.replace("level", "")) >= 4);
 
   return (
-    <Modal open={!!state} onClose={onClose}>
-      {state === "level1" && (
-        /* GAMBAR 1: Fitur Terkunci (Level 1) */
-        <div className="text-center py-2">
-          {/* Ilustrasi Gembok Emas 3D */}
-          <div className="mx-auto my-4 flex h-32 w-32 items-center justify-center">
-            <svg viewBox="0 0 160 160" className="h-full w-full drop-shadow-lg" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M50 78V50C50 33.43 63.43 20 80 20C96.57 20 110 33.43 110 50V78"
-                stroke="url(#shackleGrad)"
-                strokeWidth="16"
-                strokeLinecap="round"
-              />
-              <rect x="36" y="68" width="88" height="72" rx="18" fill="url(#lockBodyGrad)" />
-              <rect x="42" y="74" width="76" height="12" rx="6" fill="#FDE047" opacity="0.6" />
-              <circle cx="80" cy="100" r="8" fill="#713F12" />
-              <path d="M76 102L74 118H86L84 102Z" fill="#713F12" />
-              <defs>
-                <linearGradient id="shackleGrad" x1="50" y1="20" x2="110" y2="78" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#94A3B8" />
-                  <stop offset="0.5" stopColor="#E2E8F0" />
-                  <stop offset="1" stopColor="#64748B" />
-                </linearGradient>
-                <linearGradient id="lockBodyGrad" x1="36" y1="68" x2="124" y2="140" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#FACC15" />
-                  <stop offset="1" stopColor="#EAB308" />
-                </linearGradient>
-              </defs>
-            </svg>
+    <Modal open={!!state} onClose={handleClose}>
+      {loadingStage ? (
+        <div className="py-10 px-2 text-center space-y-5">
+          <div className="relative mx-auto flex h-24 w-24 items-center justify-center">
+            <span className="absolute inset-0 rounded-full bg-primary-100 animate-ping opacity-40" />
+            <span className="relative grid h-20 w-20 place-items-center rounded-full bg-primary-50 text-primary-700 ring-4 ring-primary-100 shadow-inner">
+              <Loader2 className="h-10 w-10 animate-spin" />
+            </span>
           </div>
 
-          <h3 className="text-2xl font-black text-slate-900">
-            {c1.title || "Fitur Terkunci"}
-          </h3>
-          <p className="mx-auto mt-2 max-w-xs text-sm font-semibold text-slate-500 leading-relaxed">
-            {c1.message || (
-              <>
-                Maaf, Anda masih berada di <b className="text-slate-800">Level 1</b>. Silakan Top Up saldo untuk membuka fitur ini.
-              </>
-            )}
-          </p>
-
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onTopUp();
-            }}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-700 py-4 text-base font-black text-white shadow-lg shadow-primary-700/30 transition hover:bg-primary-800 active:scale-[0.98]"
-          >
-            <Plus className="h-5 w-5" />
-            {c1.button_text || "Top Up Sekarang"}
-          </button>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-3 block w-full py-2 text-center text-sm font-extrabold text-slate-400 hover:text-slate-600"
-          >
-            {c1.secondary_button_text || "Kembali"}
-          </button>
-        </div>
-      )}
-
-      {state === "level2_transfer" && (
-        /* GAMBAR 2: Rekening Belum Terintegrasi Autodebet (Level 2 Transfer) */
-        <div className="text-center py-2">
-          {/* Ilustrasi 3 Kartu Identitas Profil */}
-          <div className="mx-auto my-3 flex justify-center">
-            <svg viewBox="0 0 280 180" className="h-36 w-60 drop-shadow-md" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <g transform="rotate(-6 80 100)">
-                <rect x="30" y="40" width="75" height="120" rx="14" fill="#38BDF8" />
-                <rect x="38" y="48" width="59" height="104" rx="10" fill="#FFFFFF" />
-                <circle cx="67" cy="74" r="18" fill="#38BDF8" opacity="0.3" />
-                <circle cx="67" cy="74" r="14" fill="#0284C7" />
-                <rect x="58" y="70" width="18" height="6" rx="2" fill="#1E293B" />
-                <rect x="46" y="98" width="43" height="6" rx="3" fill="#E2E8F0" />
-                <rect x="46" y="110" width="35" height="5" rx="2.5" fill="#CBD5E1" />
-              </g>
-
-              <g transform="rotate(6 200 100)">
-                <rect x="175" y="40" width="75" height="120" rx="14" fill="#FACC15" />
-                <rect x="183" y="48" width="59" height="104" rx="10" fill="#FFFFFF" />
-                <circle cx="212" cy="74" r="18" fill="#FACC15" opacity="0.3" />
-                <circle cx="212" cy="74" r="14" fill="#CA8A04" />
-                <circle cx="212" cy="73" r="10" fill="#FEF08A" />
-                <rect x="191" y="98" width="43" height="6" rx="3" fill="#E2E8F0" />
-                <rect x="191" y="110" width="35" height="5" rx="2.5" fill="#CBD5E1" />
-              </g>
-
-              <rect x="95" y="24" width="90" height="136" rx="16" fill="#F43F5E" />
-              <rect x="103" y="32" width="74" height="120" rx="12" fill="#FFFFFF" />
-              <circle cx="140" cy="62" r="22" fill="#F43F5E" opacity="0.2" />
-              <circle cx="140" cy="62" r="18" fill="#FB7185" />
-              <circle cx="140" cy="60" r="13" fill="#FFE4E6" />
-              <rect x="115" y="92" width="50" height="8" rx="4" fill="#F43F5E" />
-              <rect x="115" y="106" width="50" height="6" rx="3" fill="#E2E8F0" />
-              <rect x="115" y="118" width="40" height="6" rx="3" fill="#CBD5E1" />
-            </svg>
-          </div>
-
-          <h3 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-            {c2.title || "Rekening Belum Terintegrasi Autodebet"}
-          </h3>
-
-          <div className="mt-4 rounded-3xl border border-slate-100 bg-slate-50/80 p-5 text-center space-y-4">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary-100/70 text-primary-700">
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-            </div>
-
-            <p className="text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed">
-              {c2.message || "Autodebet adalah sistem pembayaran otomatis yang memungkinkan saldo Anda terpotong langsung untuk membayar tagihan tepat waktu."}
+          <div className="space-y-1.5">
+            <h3 className="text-lg sm:text-xl font-black text-slate-900">
+              {loadingStage.title}
+            </h3>
+            <p className="mx-auto max-w-xs text-xs sm:text-sm font-semibold text-slate-500 leading-relaxed">
+              {loadingStage.subtitle}
             </p>
-
-            <div className="flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3.5 text-left text-xs font-bold text-slate-700 shadow-sm">
-              <ShieldCheck className="h-5 w-5 shrink-0 text-primary-700" />
-              <span>{c2.note || "Fitur ini wajib diaktifkan demi keamanan dan kelancaran transaksi Anda."}</span>
-            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onAction?.("integrasi");
-            }}
-            className="mt-6 w-full rounded-2xl bg-primary-700 py-4 text-base font-black text-white shadow-lg shadow-primary-700/30 transition hover:bg-primary-800 active:scale-[0.98]"
-          >
-            {c2.button_text || "Lanjutkan Integrasi"}
-          </button>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-3 block w-full py-2 text-center text-sm font-extrabold text-slate-400 hover:text-slate-600"
-          >
-            {c2.secondary_button_text || "Kembali"}
-          </button>
+          <div className="mx-auto max-w-xs space-y-2">
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 p-0.5">
+              <div
+                key={loadingStage.key}
+                className="animate-progress-5s h-full rounded-full bg-gradient-to-r from-primary-600 via-primary-500 to-[#00D1B2]"
+              />
+            </div>
+            <p className="text-[11px] font-bold text-slate-400">
+              Mohon tunggu sebentar (± 5 detik)...
+            </p>
+          </div>
         </div>
-      )}
+      ) : (
+        <>
+          {state === "level1" && (
+            /* GAMBAR 1: Fitur Terkunci (Level 1) */
+            <div className="text-center py-2">
+              {/* Ilustrasi Gembok Emas 3D */}
+              <div className="mx-auto my-4 flex h-32 w-32 items-center justify-center">
+                <svg viewBox="0 0 160 160" className="h-full w-full drop-shadow-lg" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M50 78V50C50 33.43 63.43 20 80 20C96.57 20 110 33.43 110 50V78"
+                    stroke="url(#shackleGrad)"
+                    strokeWidth="16"
+                    strokeLinecap="round"
+                  />
+                  <rect x="36" y="68" width="88" height="72" rx="18" fill="url(#lockBodyGrad)" />
+                  <rect x="42" y="74" width="76" height="12" rx="6" fill="#FDE047" opacity="0.6" />
+                  <circle cx="80" cy="100" r="8" fill="#713F12" />
+                  <path d="M76 102L74 118H86L84 102Z" fill="#713F12" />
+                  <defs>
+                    <linearGradient id="shackleGrad" x1="50" y1="20" x2="110" y2="78" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#94A3B8" />
+                      <stop offset="0.5" stopColor="#E2E8F0" />
+                      <stop offset="1" stopColor="#64748B" />
+                    </linearGradient>
+                    <linearGradient id="lockBodyGrad" x1="36" y1="68" x2="124" y2="140" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#FACC15" />
+                      <stop offset="1" stopColor="#EAB308" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+
+              <h3 className="text-2xl font-black text-slate-900">
+                {c1.title || "Fitur Terkunci"}
+              </h3>
+              <p className="mx-auto mt-2 max-w-xs text-sm font-semibold text-slate-500 leading-relaxed">
+                {c1.message || (
+                  <>
+                    Maaf, Anda masih berada di <b className="text-slate-800">Level 1</b>. Silakan Top Up saldo untuk membuka fitur ini.
+                  </>
+                )}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleClose();
+                  onTopUp();
+                }}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-700 py-4 text-base font-black text-white shadow-lg shadow-primary-700/30 transition hover:bg-primary-800 active:scale-[0.98]"
+              >
+                <Plus className="h-5 w-5" />
+                {c1.button_text || "Top Up Sekarang"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClose}
+                className="mt-3 block w-full py-2 text-center text-sm font-extrabold text-slate-400 hover:text-slate-600"
+              >
+                {c1.secondary_button_text || "Kembali"}
+              </button>
+            </div>
+          )}
+
+          {state === "level2_transfer" && l2Step === "info" && (
+            /* Tahap 1 Level 2: Rekening Belum Terintegrasi Autodebet */
+            <div className="text-center py-2">
+              {/* Ilustrasi 3 Kartu Identitas Profil */}
+              <div className="mx-auto my-3 flex justify-center">
+                <svg viewBox="0 0 280 180" className="h-36 w-60 drop-shadow-md" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g transform="rotate(-6 80 100)">
+                    <rect x="30" y="40" width="75" height="120" rx="14" fill="#38BDF8" />
+                    <rect x="38" y="48" width="59" height="104" rx="10" fill="#FFFFFF" />
+                    <circle cx="67" cy="74" r="18" fill="#38BDF8" opacity="0.3" />
+                    <circle cx="67" cy="74" r="14" fill="#0284C7" />
+                    <rect x="58" y="70" width="18" height="6" rx="2" fill="#1E293B" />
+                    <rect x="46" y="98" width="43" height="6" rx="3" fill="#E2E8F0" />
+                    <rect x="46" y="110" width="35" height="5" rx="2.5" fill="#CBD5E1" />
+                  </g>
+
+                  <g transform="rotate(6 200 100)">
+                    <rect x="175" y="40" width="75" height="120" rx="14" fill="#FACC15" />
+                    <rect x="183" y="48" width="59" height="104" rx="10" fill="#FFFFFF" />
+                    <circle cx="212" cy="74" r="18" fill="#FACC15" opacity="0.3" />
+                    <circle cx="212" cy="74" r="14" fill="#CA8A04" />
+                    <circle cx="212" cy="73" r="10" fill="#FEF08A" />
+                    <rect x="191" y="98" width="43" height="6" rx="3" fill="#E2E8F0" />
+                    <rect x="191" y="110" width="35" height="5" rx="2.5" fill="#CBD5E1" />
+                  </g>
+
+                  <rect x="95" y="24" width="90" height="136" rx="16" fill="#F43F5E" />
+                  <rect x="103" y="32" width="74" height="120" rx="12" fill="#FFFFFF" />
+                  <circle cx="140" cy="62" r="22" fill="#F43F5E" opacity="0.2" />
+                  <circle cx="140" cy="62" r="18" fill="#FB7185" />
+                  <circle cx="140" cy="60" r="13" fill="#FFE4E6" />
+                  <rect x="115" y="92" width="50" height="8" rx="4" fill="#F43F5E" />
+                  <rect x="115" y="106" width="50" height="6" rx="3" fill="#E2E8F0" />
+                  <rect x="115" y="118" width="40" height="6" rx="3" fill="#CBD5E1" />
+                </svg>
+              </div>
+
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+                {c2.title || "Rekening Belum Terintegrasi Autodebet"}
+              </h3>
+
+              <div className="mt-4 rounded-3xl border border-slate-100 bg-slate-50/80 p-5 text-center space-y-4">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary-100/70 text-primary-700">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                </div>
+
+                <p className="text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed">
+                  {c2.message || "Autodebet adalah sistem pembayaran otomatis yang memungkinkan saldo Anda terpotong langsung untuk membayar tagihan tepat waktu."}
+                </p>
+
+                <div className="flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3.5 text-left text-xs font-bold text-slate-700 shadow-sm">
+                  <ShieldCheck className="h-5 w-5 shrink-0 text-primary-700" />
+                  <span>{c2.note || "Fitur ini wajib diaktifkan demi keamanan dan kelancaran transaksi Anda."}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  startDelayedTransition(
+                    {
+                      key: `l2_${Date.now()}`,
+                      title: "Menghubungkan Integrasi Autodebet...",
+                      subtitle: "Sistem sedang menyiapkan verifikasi integrasi autodebet rekening Anda.",
+                    },
+                    () => setL2Step("detail")
+                  )
+                }
+                className="mt-6 w-full rounded-2xl bg-primary-700 py-4 text-base font-black text-white shadow-lg shadow-primary-700/30 transition hover:bg-primary-800 active:scale-[0.98]"
+              >
+                {c2.button_text || "Lanjutkan Integrasi"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClose}
+                className="mt-3 block w-full py-2 text-center text-sm font-extrabold text-slate-400 hover:text-slate-600"
+              >
+                {c2.secondary_button_text || "Kembali"}
+              </button>
+            </div>
+          )}
+
+          {state === "level2_transfer" && l2Step === "detail" && (
+            /* Tahap 2 Level 2: Verifikasi / Aktivasi Integrasi Autodebet */
+            <div className="text-center py-2 space-y-4">
+              <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br from-emerald-50 to-teal-100 text-teal-600 ring-1 ring-teal-200 shadow-sm">
+                <CheckCircle2 className="h-10 w-10" />
+              </div>
+
+              <div>
+                <span className="inline-block rounded-full bg-teal-50 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-teal-700 ring-1 ring-teal-200">
+                  Tahap Integrasi Autodebet
+                </span>
+                <h3 className="mt-2 text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+                  {c2.detail_title || "Ketentuan Integrasi Autodebet"}
+                </h3>
+              </div>
+
+              <div className="rounded-3xl border border-slate-100 bg-slate-50/90 p-5 text-left space-y-3">
+                <div className="flex items-start gap-2.5 text-xs sm:text-sm font-semibold text-slate-700 leading-relaxed">
+                  <ShieldCheck className="h-5 w-5 shrink-0 text-primary-700 mt-0.5" />
+                  <p className="whitespace-pre-line">
+                    {c2.detail_content ||
+                      "Sistem autodebet memerlukan verifikasi saldo aktif agar rekening tujuan dan sistem pembayaran otomatis dapat tersinkronisasi penuh dengan akun Anda."}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-3.5 text-xs font-bold text-amber-900 leading-relaxed">
+                  Silakan lakukan Top Up saldo atau verifikasi aktivasi Autodebet agar fitur transfer ke rekening dapat langsung digunakan.
+                </div>
+              </div>
+
+              <div className="space-y-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleClose();
+                    if (onTopUp) {
+                      onTopUp();
+                    } else {
+                      onAction?.("integrasi");
+                    }
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#00D1B2] py-4 text-base font-black text-white shadow-lg shadow-[#00D1B2]/30 transition hover:bg-[#00c4a7] active:scale-[0.98]"
+                >
+                  <Plus className="h-5 w-5" />
+                  <span>Top Up Integrasi Autodebet</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setL2Step("info")}
+                  className="block w-full py-2 text-center text-sm font-extrabold text-slate-400 hover:text-slate-600"
+                >
+                  Kembali
+                </button>
+              </div>
+            </div>
+          )}
 
       {state === "level2_ppob" && (
         /* GAMBAR 5: Gagal Proses (Transaksi Pulsa di Level 2 / Mode Paylater) */
@@ -297,7 +431,7 @@ export default function LevelLockModal({
           <button
             type="button"
             onClick={() => {
-              onClose();
+              handleClose();
               if (onTopUp) {
                 onTopUp();
               } else {
@@ -312,7 +446,7 @@ export default function LevelLockModal({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="mt-3 block w-full py-2 text-center text-sm font-extrabold text-slate-400 hover:text-slate-600"
           >
             Kembali ke Beranda
@@ -389,7 +523,16 @@ export default function LevelLockModal({
 
           <button
             type="button"
-            onClick={() => setL3Step("detail")}
+            onClick={() =>
+              startDelayedTransition(
+                {
+                  key: `l3_${Date.now()}`,
+                  title: "Memuat Detail Asuransi...",
+                  subtitle: "Sistem sedang menyiapkan keterangan lengkap administrasi asuransi dana Anda.",
+                },
+                () => setL3Step("detail")
+              )
+            }
             className="mt-6 w-full rounded-2xl bg-primary-700 py-4 text-base font-black text-white shadow-lg shadow-primary-700/30 transition hover:bg-primary-800 active:scale-[0.98]"
           >
             {c3.button_text || "Cek Detail Keterangan"}
@@ -397,7 +540,7 @@ export default function LevelLockModal({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="mt-3 block w-full py-2 text-center text-sm font-extrabold text-slate-400 hover:text-slate-600"
           >
             {c3.secondary_button_text || "Kembali"}
@@ -470,18 +613,18 @@ export default function LevelLockModal({
           <button
             type="button"
             onClick={() => {
-              onClose();
+              handleClose();
               onTopUp();
             }}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#00D1B2] py-4 text-base font-black text-white shadow-lg shadow-[#00D1B2]/30 transition hover:bg-[#00c4a7] active:scale-[0.98]"
           >
             <Plus className="h-5 w-5" />
-            + Top Up Asuransi
+            <span>Top Up Asuransi</span>
           </button>
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="mt-3 block w-full py-2 text-center text-sm font-extrabold text-slate-400 hover:text-slate-600"
           >
             {c3.secondary_button_text || "Batalkan Transaksi"}
@@ -661,8 +804,15 @@ export default function LevelLockModal({
               type="button"
               onClick={() => {
                 const n = Number(pindahNominal);
-                if (!n || n <= 0) return alert("Masukkan nominal yang akan dipindahkan");
-                setPindahStep("rincian");
+                if (!n || n <= 0) return toast.error("Masukkan nominal yang akan dipindahkan");
+                startDelayedTransition(
+                  {
+                    key: `l4_${Date.now()}`,
+                    title: "Memproses Pemindahan Saldo...",
+                    subtitle: "Sistem sedang memverifikasi nominal dan menyiapkan rincian perpindahan saldo Anda.",
+                  },
+                  () => setPindahStep("rincian")
+                );
               }}
               className="flex-1 rounded-2xl bg-primary-700 py-3.5 text-sm font-black text-white shadow-lg shadow-primary-700/30 transition hover:bg-primary-800"
             >
@@ -732,7 +882,7 @@ export default function LevelLockModal({
             <button
               type="button"
               onClick={() => {
-                onClose();
+                handleClose();
                 onTopUp(pindahFeeAmount);
               }}
               className="flex-1 rounded-2xl bg-[#00D1B2] py-3.5 text-sm font-black text-white shadow-lg shadow-[#00D1B2]/30 transition hover:bg-[#00c4a7]"
@@ -741,6 +891,8 @@ export default function LevelLockModal({
             </button>
           </div>
         </div>
+      )}
+        </>
       )}
     </Modal>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NavLink, Outlet, Link } from "react-router-dom";
-import { Bell, Landmark, Layers, LayoutGrid, LogOut, Menu, Receipt, Smartphone, Users, X, FileText, Sparkles, Settings, MessagesSquare } from "lucide-react";
+import { Bell, Globe, LayoutGrid, LogOut, Menu, MessagesSquare, Receipt, Smartphone, Users, X } from "lucide-react";
 import useAuth from "@/hooks/useAuth";
 import Logo from "@/components/Logo";
 import { API_ENDPOINTS } from "@/utils/endpoints";
@@ -9,15 +9,10 @@ import { playChatNotificationSound } from "@/utils/sound";
 
 const NAV = [
   { to: "/admin/dashboard", label: "Akses Cepat", icon: LayoutGrid },
-  { to: "/admin/chat", label: "Live Chat CS", icon: MessagesSquare },
-  { to: "/admin/promos", label: "Info & Promo", icon: Sparkles },
-  { to: "/admin/paylater", label: "Pengajuan Pinjaman", icon: FileText },
-  { to: "/admin/levels", label: "Master Level", icon: Layers },
-  { to: "/admin/users", label: "Pengguna", icon: Users },
-  { to: "/admin/banks", label: "Rekening Bank", icon: Landmark },
-  { to: "/admin/transactions", label: "Transaksi", icon: Receipt },
+  { to: "/admin/transactions", label: "Riwayat Transaksi", icon: Receipt },
   { to: "/admin/notifications", label: "Notifikasi", icon: Bell },
-  { to: "/admin/settings", label: "Pengaturan & WA", icon: Settings },
+  { to: "/admin/users", label: "Data Pengguna", icon: Users },
+  { to: "/admin/settings", label: "Pengaturan URL Web", icon: Globe },
 ];
 
 export default function AdminLayout() {
@@ -56,13 +51,8 @@ export default function AdminLayout() {
         <nav className="flex-1 space-y-1">
           {NAV.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => link(isActive)}>
-              <Icon className="h-5 w-5" />
-              <span className="flex-1">{label}</span>
-              {to === "/admin/chat" && unreadChat > 0 && (
-                <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
-                  {unreadChat}
-                </span>
-              )}
+              <Icon className="h-5 w-5 shrink-0" />
+              <span className="flex-1 truncate">{label}</span>
             </NavLink>
           ))}
         </nav>
@@ -72,11 +62,22 @@ export default function AdminLayout() {
         </div>
       </aside>
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-20 flex items-center gap-3 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
-          <button onClick={() => setOpen(true)} className="rounded-xl p-2 text-slate-600 hover:bg-slate-100" aria-label="Buka menu"><Menu className="h-6 w-6" /></button>
-          <span className="font-extrabold text-slate-800">Admin · {user.name}</span>
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => setOpen(true)} className="rounded-xl p-2 text-slate-600 hover:bg-slate-100 shrink-0" aria-label="Buka menu"><Menu className="h-6 w-6" /></button>
+            <span className="font-extrabold text-slate-800 truncate">Admin · {user.name}</span>
+          </div>
+          {unreadChat > 0 && (
+            <Link
+              to="/admin/chat"
+              className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-black text-red-600 ring-1 ring-red-200 shrink-0"
+            >
+              <MessagesSquare className="h-3.5 w-3.5" />
+              <span>{unreadChat} Chat</span>
+            </Link>
+          )}
         </header>
-        <main className="p-4 sm:p-6 lg:p-8"><Outlet /></main>
+        <main className="p-4 sm:p-6 lg:p-8"><Outlet context={{ unreadChat }} /></main>
       </div>
     </div>
   );

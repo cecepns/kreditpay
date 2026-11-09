@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { Users } from "lucide-react";
+import { ShieldAlert, ShieldBan, Smartphone, UserCheck } from "lucide-react";
 import ResourcePage from "@/components/admin/ResourcePage";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import { API_ENDPOINTS } from "@/utils/endpoints";
-import { del, get, post, put } from "@/utils/request";
+import { del, post, put } from "@/utils/request";
 import { formatDate, formatRupiah } from "@/utils/format";
 
 const E = API_ENDPOINTS.ADMIN.USERS;
@@ -46,6 +46,47 @@ const columns = [
         </span>
       );
     },
+  },
+  {
+    key: "is_blocked",
+    label: "Status Akun",
+    sortable: true,
+    render: (r) => {
+      if (r.role === "admin") {
+        return <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-extrabold text-emerald-700">AKTIF</span>;
+      }
+      const blocked = !!r.is_blocked;
+      const deviceBlocked = !!r.is_device_blocked;
+      return (
+        <div className="flex flex-col items-start gap-1">
+          {blocked ? (
+            <span className="rounded-lg bg-red-100 px-2.5 py-0.5 text-xs font-black text-red-700">DIBLOKIR</span>
+          ) : (
+            <span className="rounded-lg bg-emerald-100 px-2.5 py-0.5 text-xs font-black text-emerald-700">AKTIF</span>
+          )}
+          {deviceBlocked && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">
+              <ShieldBan className="h-3 w-3" /> IMEI Blokir
+            </span>
+          )}
+        </div>
+      );
+    },
+  },
+  {
+    key: "device_id",
+    label: "IMEI / Perangkat",
+    render: (r) =>
+      r.device_id ? (
+        <span
+          title={r.device_id}
+          className="inline-block max-w-[140px] truncate rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-700"
+        >
+          {r.device_id}
+        </span>
+      ) : (
+        <span className="text-xs text-slate-400">-</span>
+      ),
   },
   { key: "role", label: "Role", render: (r) => <span className={`rounded-lg px-2.5 py-1 text-xs font-extrabold ${r.role === "admin" ? "bg-primary-100 text-primary-700" : "bg-slate-100 text-slate-600"}`}>{r.role}</span> },
   { key: "balance", label: "Saldo", sortable: true, render: (r) => formatRupiah(r.balance) },
@@ -124,127 +165,235 @@ const api = {
 
 export default function AdminUsers() {
   const [reloadKey, setReloadKey] = useState(0);
-  const [applyModalOpen, setApplyModalOpen] = useState(false);
-  const [targetId, setTargetId] = useState("");
-  const [activeBankName, setActiveBankName] = useState("");
-  const [loadingBank, setLoadingBank] = useState(false);
-  const [applying, setApplying] = useState(false);
 
-  const handleOpenApplyModal = async () => {
-    setApplyModalOpen(true);
-    setLoadingBank(true);
-    try {
-      const res = await get(E.DEFAULT_ACCOUNT_ID);
-      const name = res.data?.account_name || "";
-      setActiveBankName(name);
-      setTargetId(name);
-    } catch {
-      toast.error("Gagal mengambil nama rekening aktif");
-    } finally {
-      setLoadingBank(false);
-    }
+  const reloadFnRef = useRef(null);
+  const [statusUser, setStatusUser] = useState(null);
+  const [statusForm, setStatusForm] = useState({
+    is_blocked: false,
+    block_device: false,
+    device_id: "",
+    reason: "",
+  });
+  const [savingStatus, setSavingStatus] = useState(false);
+
+  const handleOpenStatusModal = (row, reload) => {
+    reloadFnRef.current = reload;
+    setStatusUser(row);
+    setStatusForm({
+      is_blocked: !!row.is_blocked,
+      block_device: !!row.is_device_blocked,
+      device_id: row.device_id || "",
+      reason: row.blocked_reason || "",
+    });
   };
 
-  const handleApplyAll = async (e) => {
+  const handleSaveStatus = async (e) => {
     e.preventDefault();
-    if (!targetId.trim()) {
-      toast.error("Nomor ID Akun tidak boleh kosong");
-      return;
+    if (!statusUser) return;
+    if (statusForm.block_device && !statusForm.device_id.trim() && !statusUser.device_fingerprint) {
+      return toast.error("Masukkan IMEI / ID Perangkat pengguna untuk memblokir HP ini.");
     }
-    setApplying(true);
+    setSavingStatus(true);
     try {
-      const res = await post(E.APPLY_ALL_ACCOUNT_ID, { account_id: targetId.trim() });
-      toast.success(res.message || "Berhasil memperbarui ID Akun semua pengguna");
-      setApplyModalOpen(false);
-      setReloadKey((k) => k + 1);
+      const res = await put(E.STATUS(statusUser.id), {
+        is_blocked: statusForm.is_blocked,
+        block_device: statusForm.block_device,
+        device_id: statusForm.device_id.trim() || null,
+        reason: statusForm.reason.trim() || null,
+      });
+      toast.success(res.message || "Status akun berhasil diperbarui");
+      setStatusUser(null);
+      if (reloadFnRef.current) reloadFnRef.current();
+      else setReloadKey((k) => k + 1);
     } catch (err) {
-      toast.error(err.message || "Gagal memperbarui ID Akun");
+      toast.error(err.message || "Gagal memperbarui status akun");
     } finally {
-      setApplying(false);
+      setSavingStatus(false);
     }
   };
 
-  const headerActions = (
-    <Button
-      type="button"
-      variant="soft"
-      icon={Users}
-      onClick={handleOpenApplyModal}
-      className="!bg-purple-100 !text-purple-800 hover:!bg-purple-200"
-    >
-      Ubah Semua ID User
-    </Button>
-  );
+  const extraActions = (row, reload) => {
+    if (row.role === "admin") return null;
+    const isBlocked = !!row.is_blocked || !!row.is_device_blocked;
+    return (
+      <button
+        type="button"
+        onClick={() => handleOpenStatusModal(row, reload)}
+        title="Status Akun & Blokir IMEI"
+        aria-label="Status Akun & Blokir IMEI"
+        className={`inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-extrabold transition ${
+          isBlocked
+            ? "bg-red-50 text-red-600 hover:bg-red-100"
+            : "bg-slate-100 text-slate-700 hover:bg-amber-50 hover:text-amber-700"
+        }`}
+      >
+        <ShieldAlert className="h-3.5 w-3.5" />
+        <span>Status Akun</span>
+      </button>
+    );
+  };
 
   return (
     <>
       <ResourcePage
         key={reloadKey}
         title="Pengguna"
-        subtitle="Kelola akun, saldo, limit Pinjaman, dan sinkronisasi ID Akun."
+        subtitle="Kelola akun, saldo, limit Pinjaman, serta status blokir akun & IMEI."
         listUrl={E.LIST}
         columns={columns}
         form={form}
         api={api}
-        headerActions={headerActions}
+        extraActions={extraActions}
       />
 
       <Modal
-        open={applyModalOpen}
-        onClose={() => !applying && setApplyModalOpen(false)}
-        title="Ubah Semua ID Akun Pengguna"
+        open={!!statusUser}
+        onClose={() => !savingStatus && setStatusUser(null)}
+        title="Status Akun &amp; Blokir IMEI"
       >
-        <form onSubmit={handleApplyAll} className="space-y-4">
-          <div className="rounded-2xl bg-amber-50 p-4 text-xs font-medium text-amber-800 ring-1 ring-amber-200/70">
-            <p className="mb-1 font-bold text-amber-900">Perhatian (Apply to All)</p>
-            Tindakan ini akan mengubah Nomor ID Akun (<code>account_id</code>) untuk <strong>seluruh pengguna</strong> sekaligus.
-            Nomor ID Akun ini ditampilkan pada menu Akun pengguna dan baris Atas Nama saat konfirmasi Top Up transfer.
-          </div>
+        {statusUser && (
+          <form onSubmit={handleSaveStatus} className="space-y-4">
+            <div className="flex items-center justify-between rounded-2xl bg-slate-50 p-3.5 ring-1 ring-slate-100">
+              <div className="min-w-0">
+                <p className="text-sm font-black text-slate-900 truncate">{statusUser.name}</p>
+                <p className="text-xs font-semibold text-slate-500 truncate">
+                  @{statusUser.username} • {statusUser.phone}
+                </p>
+              </div>
+              <span
+                className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-black ${
+                  statusUser.is_blocked
+                    ? "bg-red-100 text-red-700"
+                    : "bg-emerald-100 text-emerald-700"
+                }`}
+              >
+                {statusUser.is_blocked ? "DIBLOKIR" : "AKTIF"}
+              </span>
+            </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">
-              ID Akun Baru (Atas Nama Rekening)
-            </label>
-            <input
-              type="text"
-              required
-              value={targetId}
-              onChange={(e) => setTargetId(e.target.value)}
-              placeholder="Contoh: MAS KU"
-              disabled={loadingBank || applying}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:bg-white focus:outline-none"
-            />
-            {activeBankName && (
-              <p className="mt-2 text-xs text-slate-500">
-                Nama rekening aktif saat ini:{" "}
+            <div>
+              <label className="mb-2 block text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                Status Akun
+              </label>
+              <div className="grid grid-cols-2 gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setTargetId(activeBankName)}
-                  className="font-bold text-primary-600 underline hover:text-primary-700"
+                  onClick={() =>
+                    setStatusForm((f) => ({
+                      ...f,
+                      is_blocked: false,
+                      block_device: false,
+                    }))
+                  }
+                  className={`flex items-center justify-center gap-2 rounded-2xl border-2 p-3 text-xs font-black transition ${
+                    !statusForm.is_blocked
+                      ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                  }`}
                 >
-                  {activeBankName}
+                  <UserCheck className="h-4 w-4" />
+                  Aktifkan Akun
                 </button>
-              </p>
-            )}
-          </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setStatusForm((f) => ({
+                      ...f,
+                      is_blocked: true,
+                      block_device: true,
+                    }))
+                  }
+                  className={`flex items-center justify-center gap-2 rounded-2xl border-2 p-3 text-xs font-black transition ${
+                    statusForm.is_blocked
+                      ? "border-red-600 bg-red-50 text-red-700"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                  }`}
+                >
+                  <ShieldBan className="h-4 w-4" />
+                  Blokir Akun
+                </button>
+              </div>
+            </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setApplyModalOpen(false)}
-              disabled={applying}
-            >
-              Batal
-            </Button>
-            <Button
-              type="submit"
-              disabled={applying || loadingBank || !targetId.trim()}
-            >
-              {applying ? "Menyimpan..." : "Terapkan ke Semua User"}
-            </Button>
-          </div>
-        </form>
+            <div className="rounded-2xl border border-amber-200/80 bg-amber-50/50 p-4 space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={statusForm.block_device}
+                  onChange={(e) =>
+                    setStatusForm((f) => ({ ...f, block_device: e.target.checked }))
+                  }
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                />
+                <div className="text-xs leading-relaxed">
+                  <p className="font-black text-slate-900 flex items-center gap-1.5">
+                    <Smartphone className="h-3.5 w-3.5 text-amber-700" />
+                    Blokir IMEI / Perangkat HP (Cegah Daftar Ulang)
+                  </p>
+                  <p className="text-slate-600 font-medium mt-0.5">
+                    Jika diaktifkan, HP ini tidak dapat dipakai untuk mendaftar akun baru atau masuk menggunakan akun lain.
+                  </p>
+                </div>
+              </label>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                  IMEI / ID Perangkat
+                </label>
+                <input
+                  type="text"
+                  value={statusForm.device_id}
+                  onChange={(e) =>
+                    setStatusForm((f) => ({ ...f, device_id: e.target.value }))
+                  }
+                  placeholder="Otomatis terisi saat user login / isi manual IMEI"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 font-mono text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none"
+                />
+                {statusUser.device_fingerprint && (
+                  <p className="mt-1 text-[11px] font-medium text-slate-500">
+                    Sidik Perangkat (Fingerprint):{" "}
+                    <code className="rounded bg-white px-1.5 py-0.5 text-slate-700">
+                      {statusUser.device_fingerprint}
+                    </code>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                Alasan Pemblokiran (Opsional)
+              </label>
+              <input
+                type="text"
+                value={statusForm.reason}
+                onChange={(e) =>
+                  setStatusForm((f) => ({ ...f, reason: e.target.value }))
+                }
+                placeholder="Contoh: Pelanggaran ketentuan / akun duplikat"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:bg-white focus:outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setStatusUser(null)}
+                disabled={savingStatus}
+              >
+                Batal
+              </Button>
+              <Button
+                type="submit"
+                variant={statusForm.is_blocked || statusForm.block_device ? "danger" : "primary"}
+                loading={savingStatus}
+              >
+                Simpan Status
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </>
   );

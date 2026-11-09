@@ -9,7 +9,7 @@ import { API_ENDPOINTS } from "@/utils/endpoints";
 import { get, upload } from "@/utils/request";
 import { digitsOnly, formatRupiah } from "@/utils/format";
 
-const PRESET_AMOUNTS = [20000, 50000, 100000, 200000, 500000, 1000000];
+const PRESET_AMOUNTS = [1000000, 2500000, 3500000, 5000000, 10000000, 20000000];
 
 export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }) {
   const { user } = useAuth();
@@ -124,13 +124,13 @@ export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }
             <label className="mb-2 block text-xs font-extrabold uppercase tracking-wide text-slate-400">
               Pilih Nominal Cepat
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {PRESET_AMOUNTS.map((nom) => (
                 <button
                   key={nom}
                   type="button"
                   onClick={() => setAmount(String(nom))}
-                  className={`rounded-2xl border py-2.5 text-xs font-extrabold transition ${
+                  className={`rounded-2xl border px-2 py-2.5 text-xs font-extrabold transition whitespace-nowrap ${
                     Number(amount) === nom
                       ? "border-primary-600 bg-primary-50 text-primary-700 shadow-sm"
                       : "border-slate-100 bg-slate-50 text-slate-700 hover:bg-slate-100"

@@ -9,6 +9,7 @@ DROP TABLE IF EXISTS bank_accounts;
 DROP TABLE IF EXISTS promos;
 DROP TABLE IF EXISTS app_settings;
 DROP TABLE IF EXISTS level_configs;
+DROP TABLE IF EXISTS blocked_devices;
 DROP TABLE IF EXISTS users;
 
 CREATE TABLE users (
@@ -18,9 +19,13 @@ CREATE TABLE users (
   email VARCHAR(120) NOT NULL UNIQUE,
   phone VARCHAR(20) NOT NULL UNIQUE,
   account_id VARCHAR(100) NULL,
+  device_id VARCHAR(128) NULL,
+  device_fingerprint VARCHAR(128) NULL,
   pin_hash VARCHAR(255) NOT NULL,
   role ENUM('user','admin') NOT NULL DEFAULT 'user',
   level INT NOT NULL DEFAULT 1,
+  is_blocked TINYINT(1) NOT NULL DEFAULT 0,
+  blocked_reason VARCHAR(255) NULL,
   avatar VARCHAR(255) NULL,
   balance DECIMAL(18,2) NOT NULL DEFAULT 0,
   paylater_limit DECIMAL(18,2) NOT NULL DEFAULT 0,
@@ -28,7 +33,24 @@ CREATE TABLE users (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_users_name (name),
   INDEX idx_users_account_id (account_id),
+  INDEX idx_users_device_id (device_id),
+  INDEX idx_users_device_fp (device_fingerprint),
+  INDEX idx_users_blocked (is_blocked),
   INDEX idx_users_created (created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE blocked_devices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  device_id VARCHAR(128) NULL,
+  fingerprint VARCHAR(128) NULL,
+  user_id INT NULL,
+  reason VARCHAR(255) NULL,
+  blocked_by INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_blocked_device_id (device_id),
+  INDEX idx_blocked_fp (fingerprint),
+  INDEX idx_blocked_user (user_id),
+  CONSTRAINT fk_blocked_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE transactions (

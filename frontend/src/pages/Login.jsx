@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
@@ -8,6 +8,8 @@ import Button from "@/components/ui/Button";
 import Logo from "@/components/Logo";
 import LoginIllustration from "@/components/LoginIllustration";
 import FloatingInstallButton from "@/components/FloatingInstallButton";
+import ResetPasswordModal from "@/components/auth/ResetPasswordModal";
+import { BLOCK_NOTICE_KEY } from "@/utils/api";
 
 export default function Login() {
   const { login } = useAuth();
@@ -16,6 +18,17 @@ export default function Login() {
   const [errors, setErrors] = useState({});
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const msg = sessionStorage.getItem(BLOCK_NOTICE_KEY);
+      if (msg) {
+        sessionStorage.removeItem(BLOCK_NOTICE_KEY);
+        toast.error(msg);
+      }
+    } catch {}
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -82,8 +95,8 @@ export default function Login() {
           <div className="text-right">
             <button
               type="button"
-              onClick={() => toast("Hubungi bantuan untuk reset password", { icon: "ℹ️" })}
-              className="text-sm font-extrabold text-accent-600"
+              onClick={() => setResetOpen(true)}
+              className="text-sm font-extrabold text-accent-600 hover:text-accent-700 transition"
             >
               Lupa Password?
             </button>
@@ -101,6 +114,16 @@ export default function Login() {
           </p>
         </div>
       </form>
+
+      <ResetPasswordModal
+        open={resetOpen}
+        initialEmail={form.identifier}
+        onClose={() => setResetOpen(false)}
+        onSuccess={(resetEmail) => {
+          setForm({ identifier: resetEmail, password: "" });
+          setErrors({});
+        }}
+      />
 
       {/* Floating Install App Banner */}
       <FloatingInstallButton />

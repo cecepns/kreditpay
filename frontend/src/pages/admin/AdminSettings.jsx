@@ -32,6 +32,7 @@ export default function AdminSettings() {
   const [formData, setFormData] = useState({
     whatsapp_number: "",
     whatsapp_message: "",
+    web_app_url: "",
     app_name: "",
     cs_email: "",
     cs_operational_hours: "",
@@ -153,25 +154,52 @@ export default function AdminSettings() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-800">Pengaturan Kontak &amp; Sistem</h1>
-        <p className="mt-1 text-sm font-semibold text-slate-500">
-          Atur nomor WhatsApp Customer Service untuk tombol &quot;Butuh Bantuan&quot;, pesan template awal, dan informasi kontak aplikasi.
-        </p>
+        <h1 className="text-2xl font-extrabold text-slate-800">Pengaturan URL Web &amp; Sistem</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-        {/* Section 1: WhatsApp Support Integration */}
+        {/* Section 1: Pengaturan URL Web & Domain Aktif */}
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 space-y-5">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <Globe className="h-6 w-6" />
+            </span>
+            <h2 className="text-lg font-black text-slate-800">URL Web App &amp; Domain Aktif</h2>
+          </div>
+
+          <Input
+            label="URL Web App / Domain Aktif"
+            name="web_app_url"
+            value={formData.web_app_url || ""}
+            onChange={handleChange}
+            placeholder="https://kreditpay.id"
+          />
+
+          {/* [HIDDEN - BELUM DIGUNAKAN] Preview / Endpoint API WebView Mobile APK & Domain Router
+          <div className="rounded-2xl bg-indigo-50/70 p-4 text-xs text-indigo-900 border border-indigo-100/90 space-y-1.5">
+            <p className="font-bold flex items-center gap-1.5 text-indigo-950">
+              <Globe className="h-4 w-4 text-indigo-600" />
+              Endpoint API untuk WebView Mobile APK &amp; Domain Router:
+            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1 font-mono text-[11px]">
+              <code className="bg-white px-2.5 py-1.5 rounded-xl border border-indigo-100 text-slate-800 break-all select-all flex-1">
+                GET {window.location.origin}/api/settings/public (field: web_app_url)
+              </code>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Aplikasi mobile APK atau WebView dapat memanggil endpoint di atas saat inisialisasi aplikasi untuk memuat domain aktif secara dinamis tanpa perlu rilis ulang APK. Apabila pengunjung membuka domain lain, aplikasi web akan langsung mengalihkan (redirect) ke domain aktif yang diisi di atas.
+            </p>
+          </div>
+          */}
+        </div>
+
+        {/* Section 2: WhatsApp Support Integration */}
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 space-y-6">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
               <MessageSquare className="h-6 w-6" />
             </span>
-            <div>
-              <h2 className="text-lg font-black text-slate-800">Layanan WhatsApp Customer Service</h2>
-              <p className="text-xs font-semibold text-slate-400">
-                Terhubung langsung dengan tombol floating &quot;Butuh Bantuan?&quot; di aplikasi user dan tombol &quot;Live Chat&quot; di Admin.
-              </p>
-            </div>
+            <h2 className="text-lg font-black text-slate-800">Layanan WhatsApp Customer Service</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -182,7 +210,6 @@ export default function AdminSettings() {
                 value={formData.whatsapp_number}
                 onChange={handleChange}
                 placeholder="Contoh: 081234567890 atau 6281234567890"
-                helper="Bisa menggunakan awalan 08 atau 62. Sistem akan otomatis memformat nomor ke format internasional wa.me."
                 required
               />
             </div>
@@ -199,9 +226,6 @@ export default function AdminSettings() {
                 placeholder="Contoh: Halo Admin Fastkredit, saya butuh bantuan terkait akun saya."
                 className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-800 focus:border-primary-500 focus:outline-none"
               />
-              <p className="mt-1 text-xs text-slate-400 font-medium">
-                Pesan otomatis yang akan langsung terisi saat pengguna mengklik chat WhatsApp.
-              </p>
             </div>
           </div>
 
@@ -234,12 +258,7 @@ export default function AdminSettings() {
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-blue-600">
               <ShieldCheck className="h-6 w-6" />
             </span>
-            <div>
-              <h2 className="text-lg font-black text-slate-800">Informasi Aplikasi &amp; Operasional</h2>
-              <p className="text-xs font-semibold text-slate-400">
-                Detail kontak pendukung dan jadwal jam operasional layanan.
-              </p>
-            </div>
+            <h2 className="text-lg font-black text-slate-800">Informasi Aplikasi &amp; Operasional</h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -266,31 +285,6 @@ export default function AdminSettings() {
               placeholder="Senin - Minggu: 08:00 - 22:00 WIB"
             />
           </div>
-
-          <div className="pt-2 border-t border-slate-100 space-y-3">
-            <Input
-              label="URL Web App / Domain Aktif"
-              name="web_app_url"
-              value={formData.web_app_url || ""}
-              onChange={handleChange}
-              placeholder="https://kreditpay.id"
-              helper="URL website frontend aktif saat ini. Digunakan untuk WebView APK Mobile dan redirect domain otomatis jika pengunjung membuka domain alternatif."
-            />
-            <div className="rounded-2xl bg-indigo-50/70 p-4 text-xs text-indigo-900 border border-indigo-100/90 space-y-1.5">
-              <p className="font-bold flex items-center gap-1.5 text-indigo-950">
-                <Globe className="h-4 w-4 text-indigo-600" />
-                Endpoint API untuk WebView Mobile APK &amp; Domain Router:
-              </p>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1 font-mono text-[11px]">
-                <code className="bg-white px-2.5 py-1.5 rounded-xl border border-indigo-100 text-slate-800 break-all select-all flex-1">
-                  GET {window.location.origin}/api/settings/public (field: web_app_url)
-                </code>
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Aplikasi mobile APK atau WebView dapat memanggil endpoint di atas saat inisialisasi aplikasi untuk memuat domain aktif secara dinamis tanpa perlu rilis ulang APK. Apabila pengunjung membuka domain lain, aplikasi web akan langsung mengalihkan (redirect) ke domain aktif yang diisi di atas.
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Section 3: Kustomisasi Template Notifikasi ACC Pinjaman */}
@@ -299,12 +293,7 @@ export default function AdminSettings() {
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-50 text-amber-600">
               <Bell className="h-6 w-6" />
             </span>
-            <div>
-              <h2 className="text-lg font-black text-slate-800">Template Notifikasi ACC Pinjaman</h2>
-              <p className="text-xs font-semibold text-slate-400">
-                Sesuaikan judul dan isi pesan notifikasi yang akan otomatis dikirimkan ke nasabah ketika pengajuannya disetujui (ACC).
-              </p>
-            </div>
+            <h2 className="text-lg font-black text-slate-800">Template Notifikasi ACC Pinjaman</h2>
           </div>
 
           <div className="space-y-4">
@@ -315,7 +304,6 @@ export default function AdminSettings() {
                 value={formData.notif_acc_title}
                 onChange={handleChange}
                 placeholder="Contoh: Pengajuan Pinjaman Disetujui (ACC)"
-                helper="Judul notifikasi yang tampil tebal pada daftar notifikasi nasabah."
                 required
               />
             </div>
@@ -363,9 +351,6 @@ export default function AdminSettings() {
                 className="w-full rounded-2xl border border-slate-200 bg-white p-3.5 text-sm font-semibold text-slate-800 focus:border-primary-500 focus:outline-none leading-relaxed"
                 required
               />
-              <p className="mt-1 text-xs text-slate-400 font-medium">
-                Gunakan <b>&#123;name&#125;</b> untuk nama nasabah, <b>&#123;nominal&#125;</b> untuk nominal pinjaman, dan <b>&#123;app_name&#125;</b> untuk nama aplikasi.
-              </p>
             </div>
 
             {/* Live Simulation Card */}
@@ -395,7 +380,7 @@ export default function AdminSettings() {
           </div>
         </div>
 
-        {/* Section 4: Kustomisasi Template Surat Persetujuan Pinjaman & Pilihan Model */}
+        {/* [HIDDEN - BELUM DIGUNAKAN] Section 4: Kustomisasi Template Surat Persetujuan Pinjaman & Pilihan Model
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 space-y-6">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-50 text-rose-600">
@@ -411,7 +396,7 @@ export default function AdminSettings() {
             </div>
           </div>
 
-          {/* Pemilih Model Desain Surat (4 Opsi Desain Berbeda) */}
+          -- Pemilih Model Desain Surat (4 Opsi Desain Berbeda) --
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
@@ -609,14 +594,14 @@ export default function AdminSettings() {
             </div>
           </div>
 
-          {/* Pratinjau Dokumen Surat Persetujuan (Live Switcher Model) */}
+          -- Pratinjau Dokumen Surat Persetujuan (Live Switcher Model) --
           <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-900">
                 <Eye className="h-4 w-4 text-blue-600" /> Pratinjau Langsung: Surat Persetujuan Nasabah
               </span>
 
-              {/* Tab Selector Cepat Preview Model */}
+              -- Tab Selector Cepat Preview Model --
               <div className="flex flex-wrap items-center gap-1.5 bg-white p-1 rounded-2xl border border-slate-200 shadow-2xs">
                 {LETTER_MODELS.map((m) => {
                   const isCurrent = (previewModelTab || formData.letter_layout_model) === m.id;
@@ -641,7 +626,7 @@ export default function AdminSettings() {
               </div>
             </div>
 
-            {/* Dokumen Surat Live Preview */}
+            -- Dokumen Surat Live Preview --
             <ApprovalLetterDocument
               model={previewModelTab || formData.letter_layout_model || "model_1"}
               template={formData}
@@ -669,6 +654,7 @@ export default function AdminSettings() {
             />
           </div>
         </div>
+        */}
 
         {/* Save Button */}
         <div className="flex items-center justify-end gap-3">

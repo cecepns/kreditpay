@@ -2,6 +2,7 @@ import { createContext, useCallback, useEffect, useMemo, useState } from "react"
 import { TOKEN_KEY } from "@/utils/api";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { get, post } from "@/utils/request";
+import { getDeviceFingerprint, getDeviceId } from "@/utils/device";
 
 export const AuthContext = createContext(null);
 
@@ -23,7 +24,9 @@ export function AuthProvider({ children }) {
   }, [refresh]);
 
   const authenticate = useCallback(async (url, payload) => {
-    const res = await post(url, payload);
+    const device_id = getDeviceId();
+    const device_fingerprint = getDeviceFingerprint();
+    const res = await post(url, { ...payload, device_id, device_fingerprint });
     localStorage.setItem(TOKEN_KEY, res.data.token);
     setUser(res.data.user);
     return res.data.user;

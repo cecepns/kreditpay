@@ -15,6 +15,7 @@ import useAuth from "@/hooks/useAuth";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { get, upload, post } from "@/utils/request";
 import { formatTime, fileUrl } from "@/utils/format";
+import { playChatNotificationSound } from "@/utils/sound";
 
 const QUICK_SUGGESTIONS = [
   "Halo Admin, bagaimana cara aktivasi Pinjaman?",
@@ -40,13 +41,21 @@ export default function HelpButton() {
   const chatBodyRef = useRef(null);
   const messagesEndRef = useRef(null);
   const isNearBottomRef = useRef(true);
+  const prevUnreadRef = useRef(null);
+  const latestIdRef = useRef(null);
+  const seenIdsRef = useRef(new Set());
 
-  // Ambil unread counter saat tertutup
+  // Ambil unread counter saat tertutup & bunyikan notifikasi jika ada pesan baru dari admin
   const fetchUnread = useCallback(async () => {
     if (!user || isOpen) return;
     try {
       const res = await get(API_ENDPOINTS.CHAT.UNREAD);
-      setUnreadCount(res.data?.unread || 0);
+      const current = Number(res.data?.unread || 0);
+      if (prevUnreadRef.current !== null && current > prevUnreadRef.current) {
+        playChatNotificationSound();
+      }
+      prevUnreadRef.current = current;
+      setUnreadCount(current);
     } catch {}
   }, [user, isOpen]);
 
@@ -57,8 +66,11 @@ export default function HelpButton() {
     try {
       const res = await get(API_ENDPOINTS.CHAT.MESSAGES, { limit: 50 });
       const list = res.data || [];
+      seenIdsRef.current = new Set(list.map((m) => m.id));
+      latestIdRef.current = list.length > 0 ? list[list.length - 1]?.id : null;
       setMessages(list);
       setHasMore(!!res.hasMore);
+      prevUnreadRef.current = 0;
       setUnreadCount(0);
       setTimeout(() => {
         if (chatBodyRef.current) {
@@ -91,6 +103,7 @@ export default function HelpButton() {
       setHasMore(!!res.hasMore);
 
       if (older.length > 0) {
+        older.forEach((m) => seenIdsRef.current.add(m.id));
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
           const filtered = older.filter((m) => !existingIds.has(m.id));
@@ -112,19 +125,29 @@ export default function HelpButton() {
     }
   };
 
-  // Polling pesan baru secara real-time
+  // Polling pesan baru secara real-time + notif suara saat admin membalas
   const pollNewMessages = useCallback(async () => {
-    if (!user || !isOpen || messages.length === 0) return;
-    const latestId = messages[messages.length - 1]?.id;
-    if (!latestId) return;
+    if (!user || !isOpen || loading) return;
+    const latestId = latestIdRef.current;
 
     try {
-      const res = await get(API_ENDPOINTS.CHAT.MESSAGES, { afterId: latestId });
+      const res = await get(
+        API_ENDPOINTS.CHAT.MESSAGES,
+        latestId ? { afterId: latestId } : { limit: 50 }
+      );
       const newMessages = res.data || [];
-      if (newMessages.length > 0) {
+      const freshMessages = newMessages.filter((m) => !seenIdsRef.current.has(m.id));
+      if (freshMessages.length > 0) {
+        freshMessages.forEach((m) => seenIdsRef.current.add(m.id));
+        latestIdRef.current = freshMessages[freshMessages.length - 1]?.id || latestId;
+
+        if (freshMessages.some((m) => m.sender_role === "admin")) {
+          playChatNotificationSound();
+        }
+
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
-          const filtered = newMessages.filter((m) => !existingIds.has(m.id));
+          const filtered = freshMessages.filter((m) => !existingIds.has(m.id));
           return filtered.length > 0 ? [...prev, ...filtered] : prev;
         });
 
@@ -138,13 +161,13 @@ export default function HelpButton() {
         }
       }
     } catch {}
-  }, [user, isOpen, messages]);
+  }, [user, isOpen, loading]);
 
   // Polling unread saat tertutup
   useEffect(() => {
     if (!isOpen && user) {
       fetchUnread();
-      const interval = setInterval(fetchUnread, 8000);
+      const interval = setInterval(fetchUnread, 4000);
       return () => clearInterval(interval);
     }
   }, [isOpen, user, fetchUnread]);
@@ -156,16 +179,18 @@ export default function HelpButton() {
     } else {
       setMessages([]);
       setHasMore(false);
+      latestIdRef.current = null;
+      seenIdsRef.current = new Set();
     }
   }, [isOpen, user, fetchInitialMessages]);
 
-  // Polling pesan baru setiap 3 detik saat terbuka
+  // Polling pesan baru setiap 3 detik saat terbuka (walaupun percakapan awal kosong)
   useEffect(() => {
-    if (isOpen && user && messages.length > 0) {
+    if (isOpen && user && !loading) {
       const timer = setInterval(pollNewMessages, 3000);
       return () => clearInterval(timer);
     }
-  }, [isOpen, user, messages.length, pollNewMessages]);
+  }, [isOpen, user, loading, pollNewMessages]);
 
   const handleScroll = () => {
     const el = chatBodyRef.current;
@@ -216,7 +241,9 @@ export default function HelpButton() {
       setInputMessage("");
       handleRemoveFile();
       if (res.data) {
-        setMessages((prev) => [...prev, res.data]);
+        seenIdsRef.current.add(res.data.id);
+        latestIdRef.current = res.data.id;
+        setMessages((prev) => (prev.some((m) => m.id === res.data.id) ? prev : [...prev, res.data]));
         setTimeout(() => {
           if (chatBodyRef.current) {
             chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
@@ -265,7 +292,7 @@ export default function HelpButton() {
       {/* ── Live Chat Window / Bottom Drawer ── */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-xs p-0 sm:p-4">
-          <div className="flex h-[92vh] sm:h-[620px] w-full max-w-md flex-col overflow-hidden rounded-t-[2.5rem] sm:rounded-3xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-300">
+          <div className="flex h-[88dvh] sm:h-[620px] w-full max-w-md flex-col overflow-hidden rounded-t-[2.5rem] sm:rounded-3xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-300">
             {/* Header */}
             <div className="flex items-center justify-between bg-primary-800 bg-gradient-to-r from-primary-800 via-primary-700 to-primary-900 px-5 py-4 text-white shrink-0 shadow-sm">
               <div className="flex items-center gap-3">
@@ -373,7 +400,7 @@ export default function HelpButton() {
                             Customer Care
                           </span>
                         )}
-                        {m.message && <p className="whitespace-pre-wrap">{m.message}</p>}
+                        {m.message && <p className="whitespace-pre-wrap break-words">{m.message}</p>}
                         {m.attachment && (
                           <div className="mt-2 overflow-hidden rounded-xl">
                             <a
@@ -410,21 +437,21 @@ export default function HelpButton() {
 
             {/* Preview Foto Jika Ada */}
             {filePreview && (
-              <div className="border-t border-slate-100 bg-white px-4 py-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="border-t border-slate-100 bg-white px-4 py-2 flex items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <img
                     src={filePreview}
                     alt="Preview"
-                    className="h-10 w-10 object-cover rounded-lg border border-slate-200"
+                    className="h-10 w-10 shrink-0 object-cover rounded-lg border border-slate-200"
                   />
-                  <span className="text-xs font-semibold text-slate-600 truncate max-w-[200px]">
+                  <span className="text-xs font-semibold text-slate-600 truncate">
                     {selectedFile?.name}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={handleRemoveFile}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -437,7 +464,7 @@ export default function HelpButton() {
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="border-t border-slate-100 bg-white p-3 flex items-center gap-2 shrink-0"
+              className="border-t border-slate-100 bg-white p-3 flex items-center gap-2 shrink-0 min-w-0"
             >
               <input
                 ref={fileInputRef}
@@ -449,7 +476,7 @@ export default function HelpButton() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="grid h-10 w-10 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-primary-700 transition"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-primary-700 transition"
                 title="Kirim Foto / Screenshot"
               >
                 <ImagePlus className="h-5 w-5" />
@@ -461,13 +488,13 @@ export default function HelpButton() {
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ketik pesan bantuan..."
-                className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:bg-white focus:outline-none"
+                className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm sm:text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:bg-white focus:outline-none"
               />
 
               <button
                 type="submit"
                 disabled={sending || (!inputMessage.trim() && !selectedFile)}
-                className="grid h-10 w-10 place-items-center rounded-2xl bg-primary-700 text-white shadow-md shadow-primary-700/30 hover:bg-primary-800 disabled:opacity-50 disabled:shadow-none transition active:scale-95"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-700 text-white shadow-md shadow-primary-700/30 hover:bg-primary-800 disabled:opacity-50 disabled:shadow-none transition active:scale-95"
               >
                 {sending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

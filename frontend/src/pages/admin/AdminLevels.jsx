@@ -29,6 +29,7 @@ export default function AdminLevels() {
     button_text: "",
     secondary_button_text: "",
     detail_title: "",
+    detail_content: "",
     detail_sec1_header: "",
     detail_sec1_body: "",
     detail_sec2_header: "",
@@ -137,7 +138,10 @@ export default function AdminLevels() {
           : "Top Up Sekarang"
       ),
       secondary_button_text: cfg.secondary_button_text || (item.level >= 4 ? "Batal" : item.level === 3 ? "Batalkan Transaksi" : "Kembali"),
-      detail_title: cfg.detail_title || (item.level >= 4 ? "Rincian Perpindahan" : item.level === 3 ? "Ketentuan Asuransi Dana" : "Detail Ketentuan"),
+      detail_title: cfg.detail_title || (item.level >= 4 ? "Rincian Perpindahan" : item.level === 3 ? "Ketentuan Asuransi Dana" : item.level === 2 ? "Ketentuan Integrasi Autodebet" : "Detail Ketentuan"),
+      detail_content: typeof cfg.detail_content === "string" && !cfg.detail_content.trim().startsWith("{") && !cfg.detail_content.trim().startsWith("[")
+        ? cfg.detail_content
+        : "Sistem autodebet memerlukan verifikasi saldo aktif agar rekening tujuan dan sistem pembayaran otomatis dapat tersinkronisasi penuh dengan akun Anda.",
       detail_sec1_header: d1Header,
       detail_sec1_body: d1Body,
       detail_sec2_header: d2Header,
@@ -164,6 +168,8 @@ export default function AdminLevels() {
           { header: editForm.detail_sec1_header, body: editForm.detail_sec1_body },
           { header: editForm.detail_sec2_header, body: editForm.detail_sec2_body },
         ]);
+      } else if (editingLevel.level === 2) {
+        detailContentValue = editForm.detail_content || "";
       } else {
         detailContentValue = editForm.detail_title || "";
       }
@@ -180,8 +186,7 @@ export default function AdminLevels() {
       };
 
       const res = await put(API_ENDPOINTS.LEVELS.UPDATE(editingLevel.level), payload);
-      toast.dismiss();
-      toast.success(res.message || `Pengaturan Level ${editingLevel.level} berhasil disimpan`, { duration: 2500 });
+      toast.success(res.message || `Pengaturan Level ${editingLevel.level} berhasil disimpan`);
       setEditingLevel(null);
       reloadLevels();
     } catch (err) {
@@ -696,6 +701,30 @@ export default function AdminLevels() {
                   onChange={(e) => setEditForm((f) => ({ ...f, secondary_button_text: e.target.value }))}
                   placeholder="Contoh: Kembali"
                 />
+              </div>
+
+              <div className="rounded-2xl border border-teal-100 bg-teal-50/50 p-4 space-y-3">
+                <p className="text-xs font-black uppercase tracking-wider text-teal-800">
+                  Tahap 2 Autodebet (Setelah Loading 5 Detik)
+                </p>
+                <Input
+                  label="Judul Tahap 2"
+                  value={editForm.detail_title}
+                  onChange={(e) => setEditForm((f) => ({ ...f, detail_title: e.target.value }))}
+                  placeholder="Ketentuan Integrasi Autodebet"
+                />
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Keterangan Tahap 2 Autodebet
+                  </label>
+                  <textarea
+                    rows={3}
+                    className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-xs sm:text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                    value={editForm.detail_content}
+                    onChange={(e) => setEditForm((f) => ({ ...f, detail_content: e.target.value }))}
+                    placeholder="Keterangan lengkap tahap selanjutnya Autodebet..."
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">

@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import {
   FileText,
   IdCard,
+  Landmark,
   Layers,
   MessageSquare,
+  MessagesSquare,
   Radio,
   ShieldAlert,
   UserCheck,
@@ -18,6 +19,8 @@ import useFetch from "@/hooks/useFetch";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 
 export default function AdminDashboard() {
+  const outletCtx = useOutletContext() || {};
+  const unreadChat = Number(outletCtx.unreadChat || 0);
   const { data: usersData } = useFetch(API_ENDPOINTS.ADMIN.USERS.LIST);
   const { data: txData } = useFetch(API_ENDPOINTS.ADMIN.TRANSACTIONS.LIST);
   const { data: settingsData } = useFetch(API_ENDPOINTS.SETTINGS.PUBLIC);
@@ -122,7 +125,7 @@ export default function AdminDashboard() {
           </Link>
 
           <Link
-            to="/admin/paylater"
+            to="/admin/users"
             className="group flex flex-col items-center justify-center rounded-3xl bg-white p-5 text-center shadow-sm ring-1 ring-slate-100 transition hover:shadow-md hover:ring-primary-300"
           >
             <span className="grid h-14 w-14 place-items-center rounded-2xl bg-red-50 text-red-500 transition group-hover:scale-110">
@@ -171,6 +174,16 @@ export default function AdminDashboard() {
           </Link>
 
           <Link
+            to="/admin/banks"
+            className="group flex flex-col items-center justify-center rounded-3xl bg-white p-5 text-center shadow-sm ring-1 ring-slate-100 transition hover:shadow-md hover:ring-primary-300"
+          >
+            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-cyan-50 text-cyan-600 transition group-hover:scale-110">
+              <Landmark className="h-7 w-7" />
+            </span>
+            <p className="mt-3 text-xs font-extrabold text-slate-800">Rekening Bank</p>
+          </Link>
+
+          <Link
             to="/admin/settings"
             className="group flex flex-col items-center justify-center rounded-3xl bg-white p-5 text-center shadow-sm ring-1 ring-slate-100 transition hover:shadow-md hover:ring-primary-300"
           >
@@ -189,14 +202,30 @@ export default function AdminDashboard() {
           <h2 className="text-base font-extrabold text-slate-900">Fitur Lainnya</h2>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Link
+            to="/admin/chat"
+            className="relative group flex flex-col items-center justify-center rounded-3xl bg-white p-5 text-center shadow-sm ring-1 ring-slate-100 transition hover:shadow-md hover:ring-primary-300"
+          >
+            {unreadChat > 0 && (
+              <span className="absolute top-3 right-3 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white shadow-sm">
+                {unreadChat} baru
+              </span>
+            )}
+            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-sky-50 text-sky-600 transition group-hover:scale-110">
+              <MessagesSquare className="h-7 w-7" />
+            </span>
+            <p className="mt-3 text-xs font-extrabold text-slate-800">Live Chat CS</p>
+          </Link>
+
           <button
+            type="button"
             onClick={() => window.open(waUrl, "_blank")}
             className="group flex flex-col items-center justify-center rounded-3xl bg-white p-5 text-center shadow-sm ring-1 ring-slate-100 transition hover:shadow-md hover:ring-primary-300"
           >
-            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-sky-50 text-sky-600 transition group-hover:scale-110">
+            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-50 text-emerald-600 transition group-hover:scale-110">
               <MessageSquare className="h-7 w-7" />
             </span>
-            <p className="mt-3 text-xs font-extrabold text-slate-800">Live Chat</p>
+            <p className="mt-3 text-xs font-extrabold text-slate-800">WhatsApp CS</p>
           </button>
 
           <Link

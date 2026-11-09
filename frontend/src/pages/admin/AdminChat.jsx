@@ -56,6 +56,8 @@ export default function AdminChat() {
   const messagesEndRef = useRef(null);
   const isNearBottomRef = useRef(true);
   const prevConvMapRef = useRef(new Map());
+  const latestIdRef = useRef(null);
+  const seenIdsRef = useRef(new Set());
 
   // Fetch daftar percakapan
   const fetchConversations = useCallback(async (isInitial = false) => {
@@ -110,6 +112,8 @@ export default function AdminChat() {
     try {
       const res = await get(API_ENDPOINTS.ADMIN.CHAT.MESSAGES(userId), { limit: 50 });
       const list = res.data || [];
+      seenIdsRef.current = new Set(list.map((m) => m.id));
+      latestIdRef.current = list.length > 0 ? list[list.length - 1]?.id : null;
       setMessages(list);
       setHasMore(!!res.hasMore);
       setTimeout(() => {
@@ -143,6 +147,7 @@ export default function AdminChat() {
       setHasMore(!!res.hasMore);
 
       if (older.length > 0) {
+        older.forEach((m) => seenIdsRef.current.add(m.id));
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
           const filtered = older.filter((m) => !existingIds.has(m.id));
@@ -165,22 +170,26 @@ export default function AdminChat() {
 
   // Polling pesan baru dari user
   const pollNewMessages = useCallback(async () => {
-    if (!selectedUser?.user_id || messages.length === 0) return;
-    const latestId = messages[messages.length - 1]?.id;
-    if (!latestId) return;
+    if (!selectedUser?.user_id || loadingMessages) return;
+    const latestId = latestIdRef.current;
 
     try {
-      const res = await get(API_ENDPOINTS.ADMIN.CHAT.MESSAGES(selectedUser.user_id), {
-        afterId: latestId,
-      });
+      const res = await get(
+        API_ENDPOINTS.ADMIN.CHAT.MESSAGES(selectedUser.user_id),
+        latestId ? { afterId: latestId } : { limit: 50 }
+      );
       const newMessages = res.data || [];
-      if (newMessages.length > 0) {
-        if (newMessages.some((m) => m.sender_role === "user")) {
+      const freshMessages = newMessages.filter((m) => !seenIdsRef.current.has(m.id));
+      if (freshMessages.length > 0) {
+        freshMessages.forEach((m) => seenIdsRef.current.add(m.id));
+        latestIdRef.current = freshMessages[freshMessages.length - 1]?.id || latestId;
+
+        if (freshMessages.some((m) => m.sender_role === "user")) {
           playChatNotificationSound();
         }
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
-          const filtered = newMessages.filter((m) => !existingIds.has(m.id));
+          const filtered = freshMessages.filter((m) => !existingIds.has(m.id));
           return filtered.length > 0 ? [...prev, ...filtered] : prev;
         });
 
@@ -193,25 +202,28 @@ export default function AdminChat() {
         }
       }
     } catch {}
-  }, [selectedUser?.user_id, messages]);
+  }, [selectedUser?.user_id, loadingMessages]);
 
   // Load awal pesan saat user berubah
   useEffect(() => {
     if (selectedUser?.user_id) {
+      isNearBottomRef.current = true;
       fetchInitialMessages(selectedUser.user_id);
     } else {
       setMessages([]);
       setHasMore(false);
+      latestIdRef.current = null;
+      seenIdsRef.current = new Set();
     }
   }, [selectedUser?.user_id, fetchInitialMessages]);
 
   // Polling pesan baru setiap 3 detik
   useEffect(() => {
-    if (selectedUser?.user_id && messages.length > 0) {
+    if (selectedUser?.user_id && !loadingMessages) {
       const timer = setInterval(pollNewMessages, 3000);
       return () => clearInterval(timer);
     }
-  }, [selectedUser?.user_id, messages.length, pollNewMessages]);
+  }, [selectedUser?.user_id, loadingMessages, pollNewMessages]);
 
   const handleScroll = () => {
     const el = chatBodyRef.current;
@@ -272,7 +284,9 @@ export default function AdminChat() {
       setReplyText("");
       handleRemoveFile();
       if (res.data) {
-        setMessages((prev) => [...prev, res.data]);
+        seenIdsRef.current.add(res.data.id);
+        latestIdRef.current = res.data.id;
+        setMessages((prev) => (prev.some((m) => m.id === res.data.id) ? prev : [...prev, res.data]));
         setTimeout(() => {
           if (chatBodyRef.current) {
             chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
@@ -296,10 +310,10 @@ export default function AdminChat() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Header (pada mobile disembunyikan saat percakapan aktif agar layar chat muat penuh) */}
+      <div className={`flex-wrap items-center justify-between gap-3 ${selectedUser ? "hidden lg:flex" : "flex"}`}>
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Live Chat Customer Care</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900">Live Chat Customer Care</h1>
           <p className="text-xs font-semibold text-slate-500">
             Layanan pesan interaktif dua arah antara Admin dan Pengguna Fastkredit secara real-time.
           </p>
@@ -319,10 +333,16 @@ export default function AdminChat() {
       </div>
 
       {/* Main Container 2 Kolom */}
-      <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-100 flex h-[78vh] min-h-[550px]">
+      <div
+        className={`w-full max-w-full overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-100 flex ${
+          selectedUser
+            ? "h-[calc(100dvh-6.25rem)] lg:h-[78vh] min-h-[380px]"
+            : "h-[calc(100dvh-12.5rem)] lg:h-[78vh] min-h-[420px]"
+        } lg:min-h-[550px]`}
+      >
         {/* Kolom Kiri: Daftar Pengguna */}
         <div
-          className={`w-full lg:w-80 lg:shrink-0 flex flex-col border-r border-slate-100 ${
+          className={`w-full min-w-0 lg:w-80 lg:shrink-0 flex-col min-h-0 border-r border-slate-100 ${
             selectedUser ? "hidden lg:flex" : "flex"
           }`}
         >
@@ -407,39 +427,38 @@ export default function AdminChat() {
 
         {/* Kolom Kanan: Jendela Percakapan Aktif */}
         <div
-          className={`flex-1 flex flex-col bg-slate-50/50 ${
+          className={`flex-1 min-w-0 w-full min-h-0 flex-col overflow-hidden bg-slate-50/50 ${
             !selectedUser ? "hidden lg:flex items-center justify-center" : "flex"
           }`}
         >
           {selectedUser ? (
             <>
               {/* Header Chat */}
-              <div className="flex items-center justify-between border-b border-slate-100 bg-white px-4 py-3 shrink-0">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-white px-3 sm:px-4 py-2.5 sm:py-3 shrink-0 min-w-0">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                   <button
                     type="button"
                     onClick={() => setSelectedUser(null)}
-                    className="grid h-8 w-8 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 lg:hidden"
+                    aria-label="Kembali ke daftar percakapan"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 lg:hidden"
                   >
                     <ArrowLeft className="h-5 w-5" />
                   </button>
 
-                  <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-primary-600 to-primary-800 text-white font-black text-sm">
+                  <div className="grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-primary-600 to-primary-800 text-white font-black text-sm">
                     {selectedUser.name?.slice(0, 1).toUpperCase()}
                   </div>
 
-                  <div>
-                    <h2 className="text-sm font-black text-slate-900">{selectedUser.name}</h2>
-                    <p className="text-xs font-semibold text-slate-400 flex items-center gap-2">
-                      <span>@{selectedUser.username}</span>
-                      <span>•</span>
-                      <span>{selectedUser.phone}</span>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-sm font-black text-slate-900 truncate">{selectedUser.name}</h2>
+                    <p className="text-[11px] sm:text-xs font-semibold text-slate-400 truncate">
+                      @{selectedUser.username} • {selectedUser.phone}
                     </p>
                   </div>
                 </div>
 
                 {/* Badges Info Saldo & Limit PayLater User */}
-                <div className="hidden sm:flex items-center gap-2 text-xs">
+                <div className="hidden sm:flex items-center gap-2 text-xs shrink-0">
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 font-bold text-slate-700">
                     <span className="text-slate-400 font-normal">Saldo: </span>
                     {formatRupiah(selectedUser.balance || 0)}
@@ -451,11 +470,21 @@ export default function AdminChat() {
                 </div>
               </div>
 
+              {/* Strip Info Saldo & Pinjaman khusus Mobile */}
+              <div className="flex sm:hidden items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-600 shrink-0">
+                <span className="truncate">
+                  Saldo: <b className="text-slate-800">{formatRupiah(selectedUser.balance || 0)}</b>
+                </span>
+                <span className="truncate text-primary-700">
+                  Pinjaman: <b>{formatRupiah(selectedUser.paylater_limit || 0)}</b>
+                </span>
+              </div>
+
               {/* Message History Area dengan Infinite Scroll */}
               <div
                 ref={chatBodyRef}
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto p-4 space-y-3"
+                className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3"
               >
                 {/* Indicator / Tombol Infinite Scroll ke atas */}
                 {hasMore && (
@@ -505,7 +534,7 @@ export default function AdminChat() {
                               {selectedUser.name}
                             </span>
                           )}
-                          {m.message && <p className="whitespace-pre-wrap">{m.message}</p>}
+                          {m.message && <p className="whitespace-pre-wrap break-words">{m.message}</p>}
                           {m.attachment && (
                             <div className="mt-2 overflow-hidden rounded-xl">
                               <a
@@ -541,7 +570,7 @@ export default function AdminChat() {
               </div>
 
               {/* Quick Replies Bar */}
-              <div className="border-t border-slate-100 bg-white px-4 py-2 overflow-x-auto flex items-center gap-1.5 scrollbar-none">
+              <div className="w-full min-w-0 shrink-0 border-t border-slate-100 bg-white px-3 sm:px-4 py-2 overflow-x-auto flex items-center gap-1.5 scrollbar-none">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">
                   Quick Reply:
                 </span>
@@ -559,21 +588,21 @@ export default function AdminChat() {
 
               {/* File Preview Jika Ada */}
               {filePreview && (
-                <div className="border-t border-slate-100 bg-white px-4 py-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="border-t border-slate-100 bg-white px-3 sm:px-4 py-2 flex items-center justify-between gap-2 shrink-0 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <img
                       src={filePreview}
                       alt="Preview"
-                      className="h-10 w-10 object-cover rounded-lg border border-slate-200"
+                      className="h-10 w-10 shrink-0 object-cover rounded-lg border border-slate-200"
                     />
-                    <span className="text-xs font-semibold text-slate-600 truncate max-w-[200px]">
+                    <span className="text-xs font-semibold text-slate-600 truncate">
                       {selectedFile?.name}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={handleRemoveFile}
-                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                    className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -586,7 +615,7 @@ export default function AdminChat() {
                   e.preventDefault();
                   handleSendReply();
                 }}
-                className="border-t border-slate-100 bg-white p-3 flex items-center gap-2 shrink-0"
+                className="w-full min-w-0 border-t border-slate-100 bg-white px-2.5 py-2.5 sm:p-3 flex items-center gap-1.5 sm:gap-2 shrink-0"
               >
                 <input
                   ref={fileInputRef}
@@ -598,7 +627,7 @@ export default function AdminChat() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="grid h-10 w-10 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-primary-700 transition"
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-primary-700 transition"
                   title="Lampirkan Gambar"
                 >
                   <ImagePlus className="h-5 w-5" />
@@ -609,15 +638,16 @@ export default function AdminChat() {
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ketik balasan CS kepada pengguna..."
-                  className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:bg-white focus:outline-none"
+                  placeholder="Ketik balasan CS..."
+                  className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-3 sm:px-4 py-2.5 text-sm sm:text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-600 focus:bg-white focus:outline-none"
                 />
 
                 <Button
                   type="submit"
-                  disabled={sending || (!replyText.trim() && !selectedFile)}
-                  icon={sending ? Loader2 : Send}
-                  className="bg-primary-700 hover:bg-primary-800 text-white font-bold"
+                  loading={sending}
+                  disabled={!replyText.trim() && !selectedFile}
+                  icon={Send}
+                  className="!px-3.5 !py-2.5 sm:!px-5 sm:!py-3 text-xs sm:text-sm shrink-0 bg-primary-700 hover:bg-primary-800 text-white font-bold"
                 >
                   Kirim
                 </Button>

@@ -50,8 +50,36 @@ const rules = {
   username: (v) => /^[a-z0-9_.]{4,30}$/.test(v),
 };
 
-const USER_FIELDS = "id,name,username,email,phone,role,level,avatar,balance,paylater_limit,paylater_used,account_id,created_at";
+const USER_FIELDS = "id,name,username,email,phone,role,level,avatar,balance,paylater_limit,paylater_used,account_id,device_id,device_fingerprint,is_blocked,blocked_reason,created_at";
 const findUser = async (id) => (await db.query(`SELECT ${USER_FIELDS} FROM users WHERE id=?`, [id]))[0][0];
+const getClientDevice = (req) => {
+  const rawId = req.body?.device_id ?? req.headers["x-device-id"] ?? "";
+  const rawFp = req.body?.device_fingerprint ?? req.headers["x-device-fp"] ?? "";
+  return {
+    deviceId: clean(rawId, 128) || null,
+    deviceFp: clean(rawFp, 128) || null,
+  };
+};
+const findBlockedDevice = async (ids = [], fps = []) => {
+  const idList = [...new Set((Array.isArray(ids) ? ids : [ids]).filter(Boolean))];
+  const fpList = [...new Set((Array.isArray(fps) ? fps : [fps]).filter(Boolean))];
+  const conds = [];
+  const params = [];
+  if (idList.length) {
+    conds.push(`device_id IN (${idList.map(() => "?").join(",")})`);
+    params.push(...idList);
+  }
+  if (fpList.length) {
+    conds.push(`fingerprint IN (${fpList.map(() => "?").join(",")})`);
+    params.push(...fpList);
+  }
+  if (!conds.length) return null;
+  const [[row]] = await db.query(
+    `SELECT id, device_id, fingerprint, reason FROM blocked_devices WHERE ${conds.join(" OR ")} LIMIT 1`,
+    params
+  );
+  return row || null;
+};
 const getFirstActiveBankAccountName = async () => {
   try {
     const [[b]] = await db.query(
@@ -126,11 +154,55 @@ async function paginate(req, res, { from, select, searchCols = [], sortable, def
   res.json({ success: true, data: rows, pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) } });
 }
 
-const auth = (roles) => (req, res, next) => {
+const auth = (roles) => async (req, res, next) => {
   const token = (req.headers.authorization || "").replace("Bearer ", "");
   try { req.user = jwt.verify(token, process.env.JWT_SECRET || "kreditpay-fallback-secret-2026"); }
   catch { return fail(res, 401, "Sesi berakhir, silakan masuk kembali"); }
   if (roles && !roles.includes(req.user.role)) return fail(res, 403, "Akses ditolak");
+
+  try {
+    const [[dbUser]] = await db.query(
+      "SELECT id, role, is_blocked, blocked_reason, device_id, device_fingerprint FROM users WHERE id=? LIMIT 1",
+      [req.user.id]
+    );
+    if (!dbUser) return fail(res, 401, "Akun tidak ditemukan");
+
+    if (dbUser.role !== "admin") {
+      if (dbUser.is_blocked) {
+        return res.status(403).json({
+          success: false,
+          code: "ACCOUNT_BLOCKED",
+          message: dbUser.blocked_reason || "Akun Anda telah diblokir oleh Admin.",
+        });
+      }
+
+      const { deviceId, deviceFp } = getClientDevice(req);
+      const blocked = await findBlockedDevice(
+        [deviceId, dbUser.device_id],
+        [deviceFp, dbUser.device_fingerprint]
+      );
+      if (blocked) {
+        return res.status(403).json({
+          success: false,
+          code: "ACCOUNT_BLOCKED",
+          message: blocked.reason || "Perangkat / IMEI ini telah diblokir oleh Admin.",
+        });
+      }
+
+      if (
+        (deviceId && deviceId !== dbUser.device_id) ||
+        (deviceFp && deviceFp !== dbUser.device_fingerprint)
+      ) {
+        await db.query(
+          "UPDATE users SET device_id = COALESCE(?, device_id), device_fingerprint = COALESCE(?, device_fingerprint) WHERE id = ?",
+          [deviceId, deviceFp, dbUser.id]
+        );
+      }
+    }
+  } catch (e) {
+    return next(e);
+  }
+
   next();
 };
 const userOnly = auth();
@@ -185,11 +257,22 @@ app.get("/api/health", (req, res) => ok(res, { status: "up" }));
 app.post("/api/auth/register", wrap(async (req, res) => {
   const { error, data } = parseUser(req.body, { pinRequired: true });
   if (error) return fail(res, 400, error);
+
+  const { deviceId, deviceFp } = getClientDevice(req);
+  const blocked = await findBlockedDevice([deviceId], [deviceFp]);
+  if (blocked) {
+    return res.status(403).json({
+      success: false,
+      code: "DEVICE_BLOCKED",
+      message: blocked.reason || "Perangkat / IMEI Anda telah diblokir. Tidak dapat mendaftar akun baru menggunakan HP ini.",
+    });
+  }
+
   const hash = await bcrypt.hash(data.pin, 10);
   const defaultAccountId = await getFirstActiveBankAccountName();
   const [r] = await db.query(
-    "INSERT INTO users (name,username,email,phone,pin_hash,paylater_limit,account_id) VALUES (?,?,?,?,?,0,?)",
-    [data.name, data.username, data.email, data.phone, hash, defaultAccountId]
+    "INSERT INTO users (name,username,email,phone,pin_hash,paylater_limit,account_id,device_id,device_fingerprint) VALUES (?,?,?,?,?,0,?,?,?)",
+    [data.name, data.username, data.email, data.phone, hash, defaultAccountId, deviceId, deviceFp]
   );
   const user = await findUser(r.insertId);
 
@@ -214,16 +297,147 @@ app.post("/api/auth/login", wrap(async (req, res) => {
   const identifier = clean(req.body.identifier, 120).toLowerCase();
   const password = String(req.body.password ?? req.body.pin ?? "");
   if (!identifier || !password) return fail(res, 400, "Isi akun dan password");
-  const [[row]] = await db.query("SELECT id,pin_hash FROM users WHERE username=? OR email=? OR phone=? LIMIT 1", [identifier, identifier, normPhone(identifier)]);
+  const [[row]] = await db.query(
+    "SELECT id,role,pin_hash,is_blocked,blocked_reason,device_id,device_fingerprint FROM users WHERE username=? OR email=? OR phone=? LIMIT 1",
+    [identifier, identifier, normPhone(identifier)]
+  );
   if (!row || !(await bcrypt.compare(password, row.pin_hash))) return fail(res, 401, "Akun atau password salah");
+
+  if (row.role !== "admin") {
+    if (row.is_blocked) {
+      return res.status(403).json({
+        success: false,
+        code: "ACCOUNT_BLOCKED",
+        message: row.blocked_reason || "Akun Anda telah diblokir oleh Admin.",
+      });
+    }
+
+    const { deviceId, deviceFp } = getClientDevice(req);
+    const blocked = await findBlockedDevice([deviceId, row.device_id], [deviceFp, row.device_fingerprint]);
+    if (blocked) {
+      return res.status(403).json({
+        success: false,
+        code: "ACCOUNT_BLOCKED",
+        message: blocked.reason || "Perangkat / IMEI Anda telah diblokir oleh Admin.",
+      });
+    }
+
+    if (
+      (deviceId && deviceId !== row.device_id) ||
+      (deviceFp && deviceFp !== row.device_fingerprint)
+    ) {
+      await db.query(
+        "UPDATE users SET device_id = COALESCE(?, device_id), device_fingerprint = COALESCE(?, device_fingerprint) WHERE id = ?",
+        [deviceId, deviceFp, row.id]
+      );
+    }
+  }
+
   const user = await findUser(row.id);
   ok(res, { token: sign(user), user }, { message: "Berhasil masuk" });
+}));
+
+app.post("/api/auth/forgot-password/check", wrap(async (req, res) => {
+  const email = clean(req.body.email, 120).toLowerCase();
+  if (!email) return fail(res, 400, "Email wajib diisi");
+  if (!rules.email(email)) return fail(res, 400, "Format email tidak valid");
+
+  const [[row]] = await db.query(
+    "SELECT id,name,username,email,role,is_blocked,blocked_reason,device_id,device_fingerprint FROM users WHERE LOWER(email)=? LIMIT 1",
+    [email]
+  );
+  if (!row) return fail(res, 404, "Email tidak terdaftar");
+  if (row.role === "admin") {
+    return fail(res, 403, "Reset password hanya tersedia untuk akun pengguna");
+  }
+  if (row.is_blocked) {
+    return res.status(403).json({
+      success: false,
+      code: "ACCOUNT_BLOCKED",
+      message: row.blocked_reason || "Akun Anda telah diblokir oleh Admin.",
+    });
+  }
+
+  const { deviceId, deviceFp } = getClientDevice(req);
+  const blocked = await findBlockedDevice([deviceId, row.device_id], [deviceFp, row.device_fingerprint]);
+  if (blocked) {
+    return res.status(403).json({
+      success: false,
+      code: "ACCOUNT_BLOCKED",
+      message: blocked.reason || "Perangkat / IMEI Anda telah diblokir oleh Admin.",
+    });
+  }
+
+  ok(res, {
+    exists: true,
+    email: row.email,
+    name: row.name,
+    username: row.username,
+  }, { message: "Email ditemukan. Silakan buat password baru." });
+}));
+
+app.post("/api/auth/reset-password", wrap(async (req, res) => {
+  const email = clean(req.body.email, 120).toLowerCase();
+  const password = String(req.body.password ?? "");
+  const confirmPassword =
+    req.body.confirm_password !== undefined ? String(req.body.confirm_password) : undefined;
+
+  if (!email) return fail(res, 400, "Email wajib diisi");
+  if (!rules.email(email)) return fail(res, 400, "Format email tidak valid");
+  if (!rules.password(password)) return fail(res, 400, "Password baru minimal 6 karakter");
+  if (confirmPassword !== undefined && password !== confirmPassword) {
+    return fail(res, 400, "Konfirmasi password baru tidak sama");
+  }
+
+  const [[row]] = await db.query(
+    "SELECT id,email,role,is_blocked,blocked_reason,device_id,device_fingerprint FROM users WHERE LOWER(email)=? LIMIT 1",
+    [email]
+  );
+  if (!row) return fail(res, 404, "Email tidak terdaftar");
+  if (row.role === "admin") {
+    return fail(res, 403, "Reset password hanya tersedia untuk akun pengguna");
+  }
+  if (row.is_blocked) {
+    return res.status(403).json({
+      success: false,
+      code: "ACCOUNT_BLOCKED",
+      message: row.blocked_reason || "Akun Anda telah diblokir oleh Admin.",
+    });
+  }
+
+  const { deviceId, deviceFp } = getClientDevice(req);
+  const blocked = await findBlockedDevice([deviceId, row.device_id], [deviceFp, row.device_fingerprint]);
+  if (blocked) {
+    return res.status(403).json({
+      success: false,
+      code: "ACCOUNT_BLOCKED",
+      message: blocked.reason || "Perangkat / IMEI Anda telah diblokir oleh Admin.",
+    });
+  }
+
+  const hash = await bcrypt.hash(password, 10);
+  await db.query("UPDATE users SET pin_hash=? WHERE id=?", [hash, row.id]);
+
+  ok(res, { email: row.email }, { message: "Password berhasil direset. Silakan masuk dengan password baru." });
 }));
 
 app.get("/api/auth/profile", userOnly, wrap(async (req, res) => {
   const user = await findUser(req.user.id);
   if (!user) return fail(res, 401, "Akun tidak ditemukan");
   ok(res, user);
+}));
+
+app.put("/api/auth/profile", userOnly, wrap(async (req, res) => {
+  const { error, data } = parseUser(req.body, { pinRequired: false });
+  if (error) return fail(res, 400, error);
+  const sets = ["name=?", "username=?", "email=?", "phone=?"];
+  const vals = [data.name, data.username, data.email, data.phone];
+  if (data.pin) {
+    sets.push("pin_hash=?");
+    vals.push(await bcrypt.hash(data.pin, 10));
+  }
+  await db.query(`UPDATE users SET ${sets.join(",")} WHERE id=?`, [...vals, req.user.id]);
+  ok(res, await findUser(req.user.id), { message: "Profil berhasil diperbarui" });
 }));
 
 app.post("/api/auth/avatar", userOnly, upload.single("avatar"), wrap(async (req, res) => {
@@ -743,13 +957,93 @@ app.get("/api/notifications", userOnly, wrap((req, res) =>
 app.get("/api/admin/users", adminOnly, wrap((req, res) =>
   paginate(req, res, {
     from: "users",
-    select: USER_FIELDS,
-    searchCols: ["name", "username", "email", "phone", "account_id"],
-    sortable: { created_at: "created_at", name: "name", username: "username", balance: "balance", account_id: "account_id" },
+    select: `${USER_FIELDS}, EXISTS(SELECT 1 FROM blocked_devices b WHERE (users.device_id IS NOT NULL AND users.device_id <> '' AND b.device_id = users.device_id) OR (users.device_fingerprint IS NOT NULL AND users.device_fingerprint <> '' AND b.fingerprint = users.device_fingerprint)) AS is_device_blocked`,
+    searchCols: ["name", "username", "email", "phone", "account_id", "device_id"],
+    sortable: { created_at: "created_at", name: "name", username: "username", balance: "balance", account_id: "account_id", is_blocked: "is_blocked" },
     defaultSort: "created_at",
-    filters: { role: "role" },
+    filters: { role: "role", is_blocked: "is_blocked" },
   })
 ));
+
+app.put("/api/admin/users/:id/status", adminOnly, wrap(async (req, res) => {
+  const userId = Number(req.params.id);
+  if (userId === req.user.id) return fail(res, 400, "Tidak dapat memblokir akun Admin sendiri");
+
+  const isBlocked = req.body.is_blocked ? 1 : 0;
+  const blockDevice = !!req.body.block_device;
+  const customDeviceId = clean(req.body.device_id || "", 128) || null;
+  const reason = clean(req.body.reason || "", 255) || (isBlocked || blockDevice ? "Diblokir oleh Admin" : null);
+
+  const updatedUser = await withTx(async (c) => {
+    const [[target]] = await c.query("SELECT * FROM users WHERE id=? FOR UPDATE", [userId]);
+    if (!target) throw new HttpError(404, "Pengguna tidak ditemukan");
+    if (target.role === "admin" && (isBlocked || blockDevice)) {
+      throw new HttpError(400, "Tidak dapat memblokir akun Admin");
+    }
+
+    const targetDeviceId = customDeviceId || target.device_id || null;
+    const targetFp = target.device_fingerprint || null;
+
+    await c.query(
+      "UPDATE users SET is_blocked=?, blocked_reason=?, device_id=? WHERE id=?",
+      [isBlocked, isBlocked ? reason : null, targetDeviceId, userId]
+    );
+
+    if (blockDevice) {
+      if (!targetDeviceId && !targetFp) {
+        throw new HttpError(400, "ID Perangkat / IMEI pengguna belum tercatat. Isi IMEI/Device ID secara manual atau tunggu pengguna login terlebih dahulu.");
+      }
+      if (targetDeviceId) {
+        await c.query(
+          `INSERT INTO blocked_devices (device_id, fingerprint, user_id, reason, blocked_by)
+           VALUES (?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             fingerprint = COALESCE(VALUES(fingerprint), fingerprint),
+             user_id = VALUES(user_id),
+             reason = VALUES(reason),
+             blocked_by = VALUES(blocked_by)`,
+          [targetDeviceId, targetFp, userId, reason || "Perangkat / IMEI diblokir oleh Admin", req.user.id]
+        );
+      } else if (targetFp) {
+        const [[existingFp]] = await c.query("SELECT id FROM blocked_devices WHERE fingerprint=? LIMIT 1", [targetFp]);
+        if (!existingFp) {
+          await c.query(
+            "INSERT INTO blocked_devices (device_id, fingerprint, user_id, reason, blocked_by) VALUES (NULL, ?, ?, ?, ?)",
+            [targetFp, userId, reason || "Perangkat / IMEI diblokir oleh Admin", req.user.id]
+          );
+        }
+      }
+    } else {
+      const conds = ["user_id = ?"];
+      const params = [userId];
+      if (targetDeviceId) {
+        conds.push("device_id = ?");
+        params.push(targetDeviceId);
+      }
+      if (targetFp) {
+        conds.push("fingerprint = ?");
+        params.push(targetFp);
+      }
+      await c.query(`DELETE FROM blocked_devices WHERE ${conds.join(" OR ")}`, params);
+    }
+
+    const [[fresh]] = await c.query(
+      `SELECT ${USER_FIELDS}, EXISTS(SELECT 1 FROM blocked_devices b WHERE (users.device_id IS NOT NULL AND users.device_id <> '' AND b.device_id = users.device_id) OR (users.device_fingerprint IS NOT NULL AND users.device_fingerprint <> '' AND b.fingerprint = users.device_fingerprint)) AS is_device_blocked FROM users WHERE id=?`,
+      [userId]
+    );
+    return fresh;
+  });
+
+  const statusMsg = isBlocked
+    ? blockDevice
+      ? "Akun & IMEI perangkat berhasil diblokir"
+      : "Akun berhasil diblokir"
+    : blockDevice
+    ? "IMEI perangkat diblokir (daftar ulang dicegah)"
+    : "Status akun & perangkat diaktifkan kembali";
+
+  ok(res, updatedUser, { message: statusMsg });
+}));
 
 const adminUserExtras = (b) => ({
   role: b.role === "admin" ? "admin" : "user",
@@ -1094,6 +1388,7 @@ app.put("/api/admin/settings", adminOnly, wrap(async (req, res) => {
   const allowed = [
     "whatsapp_number",
     "whatsapp_message",
+    "web_app_url",
     "app_name",
     "cs_email",
     "cs_operational_hours",
@@ -1613,6 +1908,35 @@ async function initDb() {
     } catch {
       // Kolom account_id sudah ada
     }
+
+    const userDeviceAlterCols = [
+      "ALTER TABLE users ADD COLUMN device_id VARCHAR(128) NULL AFTER account_id",
+      "ALTER TABLE users ADD COLUMN device_fingerprint VARCHAR(128) NULL AFTER device_id",
+      "ALTER TABLE users ADD COLUMN is_blocked TINYINT(1) NOT NULL DEFAULT 0 AFTER level",
+      "ALTER TABLE users ADD COLUMN blocked_reason VARCHAR(255) NULL AFTER is_blocked",
+      "ALTER TABLE users ADD INDEX idx_users_device_id (device_id)",
+      "ALTER TABLE users ADD INDEX idx_users_device_fp (device_fingerprint)",
+      "ALTER TABLE users ADD INDEX idx_users_blocked (is_blocked)",
+    ];
+    for (const sql of userDeviceAlterCols) {
+      try { await db.query(sql); } catch {}
+    }
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS blocked_devices (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        device_id VARCHAR(128) NULL,
+        fingerprint VARCHAR(128) NULL,
+        user_id INT NULL,
+        reason VARCHAR(255) NULL,
+        blocked_by INT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_blocked_device_id (device_id),
+        INDEX idx_blocked_fp (fingerprint),
+        INDEX idx_blocked_user (user_id),
+        CONSTRAINT fk_blocked_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB;
+    `);
 
     try {
       await db.query(`

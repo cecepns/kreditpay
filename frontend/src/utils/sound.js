@@ -12,7 +12,7 @@ function getAudio() {
   return globalAudio;
 }
 
-// Buka kunci (unlock) audio context saat pertama kali admin melakukan interaksi klik/tap/tombol
+// Buka kunci (unlock) audio context saat pertama kali pengguna/admin melakukan interaksi klik/tap/tombol
 if (typeof window !== "undefined") {
   const unlockAudio = () => {
     if (audioContextUnlocked) return;
@@ -34,14 +34,15 @@ if (typeof window !== "undefined") {
     } catch {}
   };
 
-  window.addEventListener("click", unlockAudio, { once: true });
-  window.addEventListener("touchstart", unlockAudio, { once: true });
-  window.addEventListener("keydown", unlockAudio, { once: true });
+  window.addEventListener("click", unlockAudio, { passive: true });
+  window.addEventListener("touchstart", unlockAudio, { passive: true });
+  window.addEventListener("keydown", unlockAudio);
 }
 
 /**
  * Memutar suara notifikasi chat (message-notif.mp3).
- * Dilengkapi throttle 1.5 detik agar suara tidak berulang tumpang tindih.
+ * Dilengkapi throttle 1.5 detik agar suara tidak berulang tumpang tindih,
+ * serta memanfaatkan elemen audio yang telah di-unlock agar bekerja mulus di mobile & WebView.
  */
 export function playChatNotificationSound() {
   const now = Date.now();
@@ -49,8 +50,10 @@ export function playChatNotificationSound() {
   lastPlayedAt = now;
 
   try {
-    const audio = new Audio(notifSound);
+    const audio = getAudio();
+    audio.muted = false;
     audio.volume = 1.0;
+    audio.currentTime = 0;
     const playPromise = audio.play();
     if (playPromise !== undefined) {
       playPromise.catch((err) => {
