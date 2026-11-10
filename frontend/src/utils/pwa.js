@@ -38,14 +38,18 @@ export function initPwa() {
   }
 }
 
-export function isAppStandalone() {
+export function isStandaloneDisplay() {
   if (typeof window === "undefined") return false;
   return (
-    Boolean(window.__pwaInstalled) ||
-    window.matchMedia?.("(display-mode: standalone)")?.matches ||
-    window.matchMedia?.("(display-mode: fullscreen)")?.matches ||
+    Boolean(window.matchMedia?.("(display-mode: standalone)")?.matches) ||
+    Boolean(window.matchMedia?.("(display-mode: fullscreen)")?.matches) ||
     window.navigator?.standalone === true
   );
+}
+
+export function isAppStandalone() {
+  if (typeof window === "undefined") return false;
+  return Boolean(window.__pwaInstalled) || isStandaloneDisplay();
 }
 
 export function isIosBrowser() {

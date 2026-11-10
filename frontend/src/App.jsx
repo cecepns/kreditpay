@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { GuestRoute, ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { GuestRoute, LandingRoute, ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import UserLayout from "@/components/layout/UserLayout";
 import AdminLayout from "@/components/layout/AdminLayout";
 import Landing from "@/pages/Landing";
@@ -70,7 +70,7 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
+      <Route path="/" element={<LandingRoute><Landing /></LandingRoute>} />
       <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
       <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
 
