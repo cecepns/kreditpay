@@ -23,10 +23,14 @@ import {
   HelpCircle,
   Smartphone,
   Star,
+  Download,
+  Loader2,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import FloatingInstallButton from "@/components/FloatingInstallButton";
+import PwaInstallGuideModal from "@/components/PwaInstallGuideModal";
 import useAuth from "@/hooks/useAuth";
+import usePwaInstall from "@/hooks/usePwaInstall";
 import { formatRupiah } from "@/utils/format";
 import heroImage from "@/assets/image-landing.avif";
 import logoBankIndonesia from "@/assets/bank-indonesia.png";
@@ -132,6 +136,14 @@ const FAQS = [
 
 export default function Landing() {
   const { user } = useAuth();
+  const {
+    isStandalone,
+    installing,
+    guideMode,
+    setGuideMode,
+    handleInstallClick,
+    handleCopyUrl,
+  } = usePwaInstall();
   const home = user ? (user.role === "admin" ? "/admin" : "/app") : "/login";
 
   // State Simulasi Kalkulator Cicilan
@@ -235,6 +247,44 @@ export default function Landing() {
               <p className="mt-5 text-base font-semibold leading-relaxed text-slate-600 sm:text-lg max-w-2xl mx-auto lg:mx-0">
                 Solusi pembiayaan dana tunai terpercaya bersama <strong className="text-slate-900">Fastkredit</strong>. Nikmati kemudahan pengajuan dengan plafon limit hingga <strong className="text-primary-800">Rp 500.000.000</strong>, bunga ringan flat 2%/tahun, dan pencairan instan langsung ke rekening bank Anda.
               </p>
+
+              {/* Ajakan Wajib Install Aplikasi Sebelum Pengajuan */}
+              {!isStandalone && (
+                <div className="mt-6 rounded-2xl border border-amber-200/90 bg-gradient-to-r from-amber-50/90 via-white to-primary-50/80 p-4 shadow-sm ring-1 ring-amber-100/70 text-left">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700 ring-1 ring-amber-200/80 mt-0.5">
+                        <Smartphone className="h-5 w-5" />
+                      </span>
+                      <div className="min-w-0">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800">
+                          Wajib Instal Aplikasi
+                        </span>
+                        <p className="mt-1 text-sm font-black text-slate-900 leading-snug">
+                          Download aplikasinya untuk kemudahan transaksi Anda.
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-slate-600 leading-relaxed">
+                          Ayo cairkan pinjaman Anda, namun instal aplikasi <strong>Fastkredit</strong> terlebih dahulu sebelum melanjutkan pengajuan.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleInstallClick}
+                      disabled={installing}
+                      className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-primary-700 px-4 py-3 text-xs font-black text-white shadow-md shadow-primary-700/25 transition hover:bg-primary-800 active:scale-95 disabled:opacity-70"
+                    >
+                      {installing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      <span>{installing ? "Menyiapkan..." : "Instal Aplikasi"}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Tombol CTA */}
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4">
@@ -620,10 +670,27 @@ export default function Landing() {
             Siap Dapatkan Fasilitas Pinjaman Hingga Rp 500 Juta Hari Ini?
           </h2>
           <p className="mt-4 text-xs sm:text-sm font-medium text-white/80 max-w-xl mx-auto leading-relaxed">
-            Daftarkan diri Anda dalam 2 menit. Nikmati kemudahan proses instan, bunga ringan, dan layanan pelanggan prioritas bersama Fastkredit.
+            {isStandalone
+              ? "Daftarkan diri Anda dalam 2 menit. Nikmati kemudahan proses instan, bunga ringan, dan layanan pelanggan prioritas bersama Fastkredit."
+              : "Download aplikasinya untuk kemudahan transaksi Anda. Ayo cairkan pinjaman Anda dengan menginstal aplikasi Fastkredit terlebih dahulu."}
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+            {!isStandalone && (
+              <button
+                type="button"
+                onClick={handleInstallClick}
+                disabled={installing}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-7 py-4 text-sm font-black text-emerald-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 transition active:scale-95 disabled:opacity-70"
+              >
+                {installing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                <span>{installing ? "Menyiapkan..." : "Instal Aplikasi Dulu"}</span>
+              </button>
+            )}
             <Link
               to={user ? "/app/paylater" : "/register"}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-8 py-4 text-sm font-black text-primary-950 shadow-lg shadow-black/20 hover:bg-slate-100 transition active:scale-95"
@@ -698,6 +765,11 @@ export default function Landing() {
 
       {/* Floating Install Prompt untuk PWA */}
       <FloatingInstallButton />
+      <PwaInstallGuideModal
+        guideMode={guideMode}
+        onClose={() => setGuideMode(null)}
+        onCopyUrl={handleCopyUrl}
+      />
     </div>
   );
 }
