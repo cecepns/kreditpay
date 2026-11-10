@@ -169,18 +169,20 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-slate-50 font-display text-slate-800 antialiased selection:bg-primary-500 selection:text-white">
       {/* ── 1. TOP ANNOUNCEMENT BAR ── */}
-      <div className="bg-gradient-to-r from-primary-900 via-primary-800 to-indigo-900 px-4 py-2 text-center text-xs font-semibold text-white/90">
+      <div className="bg-gradient-to-r from-primary-900 via-primary-800 to-indigo-900 px-3 py-2 text-center text-[11px] sm:text-xs font-semibold leading-snug text-white/95">
         <div className="mx-auto flex max-w-6xl items-center justify-center gap-2">
-          <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Layanan Pinjaman &amp; Fasilitas Kredit Resmi Fastkredit — Plafon maksimal kini hingga <strong>Rp 500.000.000</strong></span>
+          <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+          <span>
+            Layanan Pinjaman &amp; Fasilitas Kredit Resmi Fastkredit — Plafon hingga <strong>Rp 500.000.000</strong>
+          </span>
         </div>
       </div>
 
       {/* ── 2. STICKY NAVBAR ── */}
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 sm:gap-4 px-3.5 py-3 sm:px-6 sm:py-3.5">
           <Link to="/" className="shrink-0 transition hover:opacity-95">
-            <Logo size="sm" />
+            <Logo size="sm" className="[&_img]:h-7 sm:[&_img]:h-9" />
           </Link>
 
           {/* Navigasi Desktop */}
@@ -192,29 +194,29 @@ export default function Landing() {
           </nav>
 
           {/* Tombol Aksi Kanan */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
             {user ? (
               <Link
                 to={home}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-700 px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-black text-white shadow-md shadow-primary-700/20 transition hover:bg-primary-800 active:scale-95"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary-700 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-black text-white shadow-md shadow-primary-700/20 transition hover:bg-primary-800 active:scale-95 whitespace-nowrap"
               >
                 <span>Dashboard Akun</span>
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 shrink-0" />
               </Link>
             ) : (
               <>
                 <Link
                   to="/login"
-                  className="rounded-2xl px-3.5 py-2 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100 transition"
+                  className="rounded-xl border border-slate-200/90 bg-slate-50/80 px-3 py-2 sm:px-4 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100 transition whitespace-nowrap"
                 >
                   Masuk
                 </Link>
                 <Link
                   to="/register"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-primary-700 px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-black text-white shadow-md shadow-primary-700/25 transition hover:bg-primary-800 active:scale-95"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary-700 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-black text-white shadow-md shadow-primary-700/25 transition hover:bg-primary-800 active:scale-95 whitespace-nowrap"
                 >
                   <span>Daftar Akun</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0" />
                 </Link>
               </>
             )}
@@ -249,7 +251,7 @@ export default function Landing() {
               </p>
 
               {/* Ajakan Download Aplikasi Sebelum Pengajuan */}
-              {!isStandalone && (
+              {/* {!isStandalone && (
                 <div className="mt-6 rounded-2xl border border-primary-200/90 bg-gradient-to-r from-primary-50/90 via-white to-indigo-50/80 p-4 shadow-sm ring-1 ring-primary-100/70 text-left">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
                     <div className="flex items-center gap-3 min-w-0">
@@ -281,7 +283,7 @@ export default function Landing() {
                     </button>
                   </div>
                 </div>
-              )}
+              )} */}
 
               {/* Tombol CTA */}
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4">
@@ -466,11 +468,10 @@ export default function Landing() {
                     key={amt}
                     type="button"
                     onClick={() => setCalcAmount(amt)}
-                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
-                      calcAmount === amt
-                        ? "bg-primary-700 text-white shadow-sm"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${calcAmount === amt
+                      ? "bg-primary-700 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
                   >
                     {formatRupiah(amt)}
                   </button>
@@ -491,11 +492,10 @@ export default function Landing() {
                     key={t}
                     type="button"
                     onClick={() => setCalcTenor(t)}
-                    className={`rounded-2xl py-3 text-center transition font-black text-xs sm:text-sm ${
-                      calcTenor === t
-                        ? "bg-primary-700 text-white shadow-md shadow-primary-700/25 ring-2 ring-primary-700 ring-offset-2"
-                        : "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100"
-                    }`}
+                    className={`rounded-2xl py-3 text-center transition font-black text-xs sm:text-sm ${calcTenor === t
+                      ? "bg-primary-700 text-white shadow-md shadow-primary-700/25 ring-2 ring-primary-700 ring-offset-2"
+                      : "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100"
+                      }`}
                   >
                     {t} Bln
                   </button>
@@ -700,7 +700,7 @@ export default function Landing() {
       </section>
 
       {/* ── 10. FOOTER RESMI ── */}
-      <footer className="border-t border-slate-200/90 bg-white py-12 text-slate-500 pb-28 sm:pb-12">
+      <footer className="border-t border-slate-200/90 bg-white py-12 text-slate-500 pb-40 sm:pb-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 space-y-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-8 text-center sm:text-left">
             <Logo size="sm" />

@@ -139,7 +139,7 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="mt-auto pt-10 pb-20">
+        <div className="mt-auto pt-10 pb-36 sm:pb-24">
           <div>
             <Button type="submit" loading={loading} className="h-14 w-full text-lg">
               Masuk Sekarang

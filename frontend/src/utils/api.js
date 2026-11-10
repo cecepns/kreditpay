@@ -42,6 +42,9 @@ api.interceptors.response.use(
       error.response.data.message = normalizeBlockedMessage(error.response.data.message);
     }
 
+    const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
+    const isPublicGuestPath = currentPath === "/" || currentPath === "/login" || currentPath === "/register";
+
     if ((error.response?.status === 401 || isBlocked) && !isAuthRoute) {
       localStorage.removeItem(TOKEN_KEY);
       if (isBlocked) {
@@ -49,7 +52,9 @@ api.interceptors.response.use(
           sessionStorage.setItem(BLOCK_NOTICE_KEY, BLOCKED_DEVICE_MESSAGE);
         } catch {}
       }
-      if (window.location.pathname !== "/login") window.location.assign("/login");
+      if ((!isPublicGuestPath || isBlocked) && currentPath !== "/login") {
+        window.location.assign("/login");
+      }
     }
     return Promise.reject(error);
   }

@@ -42,7 +42,6 @@ export function isStandaloneDisplay() {
   if (typeof window === "undefined") return false;
   return (
     Boolean(window.matchMedia?.("(display-mode: standalone)")?.matches) ||
-    Boolean(window.matchMedia?.("(display-mode: fullscreen)")?.matches) ||
     window.navigator?.standalone === true
   );
 }
