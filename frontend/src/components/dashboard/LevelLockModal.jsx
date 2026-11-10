@@ -13,6 +13,36 @@ import Modal from "@/components/ui/Modal";
 import LoadingTransition from "@/components/ui/LoadingTransition";
 import { formatRupiah, digitsOnly } from "@/utils/format";
 
+const getInitialTransferLoading = (modalState) => {
+  if (modalState === "level2_transfer") {
+    return {
+      key: "init_l2_transfer",
+      title: "Memeriksa Integrasi Rekening...",
+      subtitle: "Sistem sedang memeriksa status integrasi autodebet akun Anda.",
+    };
+  }
+  if (modalState === "level3_tertunda" || modalState === "level3_asuransi") {
+    return {
+      key: "init_l3_transfer",
+      title: "Memproses Permintaan Transfer...",
+      subtitle: "Sistem sedang melakukan verifikasi keamanan pencairan dana Anda.",
+    };
+  }
+  if (
+    modalState === "pindah_saldo" ||
+    (typeof modalState === "string" &&
+      modalState.startsWith("level") &&
+      Number(modalState.replace("level", "")) >= 4)
+  ) {
+    return {
+      key: "init_l4_transfer",
+      title: "Memproses Transfer Saldo...",
+      subtitle: "Sistem sedang memeriksa status pemindahan limit Pinjaman Anda.",
+    };
+  }
+  return null;
+};
+
 export default function LevelLockModal({
   state,
   activeLevel = 4,
@@ -26,6 +56,7 @@ export default function LevelLockModal({
   const [l3Step, setL3Step] = useState("tertunda"); // "tertunda" | "detail"
   const [pindahStep, setPindahStep] = useState("info"); // "info" | "konfirmasi" | "rincian"
   const [pindahNominal, setPindahNominal] = useState("10000");
+  const [readyState, setReadyState] = useState(null);
   const [loadingStage, setLoadingStage] = useState(null);
   const transitionTimerRef = useRef(null);
 
@@ -40,6 +71,7 @@ export default function LevelLockModal({
   useEffect(() => {
     clearTransition();
     setL2Step("info");
+    setReadyState(null);
 
     if (state === "level3_detail") {
       setL3Step("detail");
@@ -53,6 +85,14 @@ export default function LevelLockModal({
     ) {
       setPindahStep("info");
       setPindahNominal("10000");
+    }
+
+    const initialConfig = getInitialTransferLoading(state);
+    if (initialConfig) {
+      transitionTimerRef.current = setTimeout(() => {
+        transitionTimerRef.current = null;
+        setReadyState(state);
+      }, 5000);
     }
 
     return () => {
@@ -75,10 +115,15 @@ export default function LevelLockModal({
 
   const handleClose = () => {
     clearTransition();
+    setReadyState(null);
     onClose?.();
   };
 
   if (!state) return null;
+
+  const initialTransferLoading = getInitialTransferLoading(state);
+  const activeLoadingStage =
+    loadingStage || (initialTransferLoading && readyState !== state ? initialTransferLoading : null);
 
   const configMap = (Array.isArray(levelConfigs) ? levelConfigs : []).reduce((acc, cur) => {
     if (cur && cur.level) acc[cur.level] = cur;
@@ -179,11 +224,11 @@ export default function LevelLockModal({
 
   return (
     <Modal open={!!state} onClose={handleClose}>
-      {loadingStage ? (
+      {activeLoadingStage ? (
         <LoadingTransition
-          title={loadingStage.title}
-          subtitle={loadingStage.subtitle}
-          progressKey={loadingStage.key}
+          title={activeLoadingStage.title}
+          subtitle={activeLoadingStage.subtitle}
+          progressKey={activeLoadingStage.key}
         />
       ) : (
         <>

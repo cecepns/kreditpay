@@ -118,8 +118,7 @@ export default function Register() {
               <CheckCircle2 className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-extrabold text-emerald-950">Notifikasi Push Aktif</p>
-              <p className="text-[11px] font-semibold text-emerald-700">Perangkat siap menerima info pengajuan &amp; pencairan.</p>
+              <p className="text-xs sm:text-sm font-extrabold text-emerald-950">Pastikan Data Anda Sesuai dengan KTP</p>
             </div>
           </div>
         ) : (
