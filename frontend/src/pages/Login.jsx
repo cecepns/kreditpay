@@ -9,7 +9,11 @@ import Logo from "@/components/Logo";
 import LoginIllustration from "@/components/LoginIllustration";
 import FloatingInstallButton from "@/components/FloatingInstallButton";
 import ResetPasswordModal from "@/components/auth/ResetPasswordModal";
+import PushPermissionModal from "@/components/auth/PushPermissionModal";
 import { BLOCK_NOTICE_KEY, normalizeBlockedMessage } from "@/utils/api";
+import { getLocalPushReadiness } from "@/utils/push";
+
+const LOGIN_PUSH_DISMISS_KEY = "fk_login_push_dismissed";
 
 export default function Login() {
   const { login } = useAuth();
@@ -19,16 +23,48 @@ export default function Login() {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [pushModalOpen, setPushModalOpen] = useState(false);
+  const [pushStatus, setPushStatus] = useState(null);
 
   useEffect(() => {
+    let hasBlockNotice = false;
     try {
       const msg = sessionStorage.getItem(BLOCK_NOTICE_KEY);
       if (msg) {
+        hasBlockNotice = true;
         sessionStorage.removeItem(BLOCK_NOTICE_KEY);
         toast.error(normalizeBlockedMessage(msg));
       }
     } catch {}
+
+    if (hasBlockNotice) return;
+
+    let dismissed = false;
+    try {
+      dismissed = sessionStorage.getItem(LOGIN_PUSH_DISMISS_KEY) === "1";
+    } catch {}
+    if (dismissed) return;
+
+    getLocalPushReadiness().then((res) => {
+      setPushStatus(res);
+      if (!res.ready && !res.inApp && ((res.supported && res.permission === "default") || res.iosNeedsInstall)) {
+        setPushModalOpen(true);
+      }
+    });
   }, []);
+
+  const dismissLoginPush = () => {
+    setPushModalOpen(false);
+    try {
+      sessionStorage.setItem(LOGIN_PUSH_DISMISS_KEY, "1");
+    } catch {}
+  };
+
+  const recheckLoginPush = async () => {
+    const res = await getLocalPushReadiness();
+    setPushStatus(res);
+    return res;
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -122,6 +158,18 @@ export default function Login() {
         onSuccess={(resetEmail) => {
           setForm({ identifier: resetEmail, password: "" });
           setErrors({});
+        }}
+      />
+
+      <PushPermissionModal
+        open={pushModalOpen}
+        onClose={dismissLoginPush}
+        required={false}
+        status={pushStatus}
+        onRecheck={recheckLoginPush}
+        onActivated={async () => {
+          await recheckLoginPush();
+          setPushModalOpen(false);
         }}
       />
 

@@ -3,7 +3,7 @@ import { TOKEN_KEY } from "@/utils/api";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { get, post } from "@/utils/request";
 import { getDeviceFingerprint, getDeviceId } from "@/utils/device";
-import { unsubscribeDeviceWithToken } from "@/utils/push";
+import { getLocalSubscriptionPayload, unsubscribeDeviceWithToken } from "@/utils/push";
 
 export const AuthContext = createContext(null);
 
@@ -27,7 +27,8 @@ export function AuthProvider({ children }) {
   const authenticate = useCallback(async (url, payload) => {
     const device_id = getDeviceId();
     const device_fingerprint = getDeviceFingerprint();
-    const res = await post(url, { ...payload, device_id, device_fingerprint });
+    const push_subscription = payload.push_subscription ?? (await getLocalSubscriptionPayload());
+    const res = await post(url, { ...payload, device_id, device_fingerprint, push_subscription });
     localStorage.setItem(TOKEN_KEY, res.data.token);
     setUser(res.data.user);
     return res.data.user;

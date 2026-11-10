@@ -405,10 +405,43 @@ app.use("/uploads", express.static(UPLOAD_DIR));
 
 app.get("/api/health", (req, res) => ok(res, { status: "up" }));
 
+const parsePushSubscription = (raw) => {
+  if (!raw || typeof raw !== "object") return null;
+  const endpoint = String(raw.endpoint || "").trim().slice(0, 500);
+  const p256dh = String(raw.keys?.p256dh || "").trim().slice(0, 255);
+  const auth = String(raw.keys?.auth || "").trim().slice(0, 255);
+  if (!endpoint || !endpoint.startsWith("https://") || !p256dh || !auth) {
+    return null;
+  }
+  return { endpoint, p256dh, auth };
+};
+
+async function upsertUserPushSubscription(userId, sub, req) {
+  if (!userId || !sub) return false;
+  const userAgent = clean(req?.headers?.["user-agent"] || sub.userAgent || "", 255) || null;
+  await db.query(
+    `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       user_id = VALUES(user_id),
+       p256dh = VALUES(p256dh),
+       auth = VALUES(auth),
+       user_agent = VALUES(user_agent),
+       updated_at = NOW()`,
+    [userId, sub.endpoint, sub.p256dh, sub.auth, userAgent]
+  );
+  return true;
+}
+
 /* ── Auth ── */
 app.post("/api/auth/register", wrap(async (req, res) => {
   const { error, data } = parseUser(req.body, { pinRequired: true });
   if (error) return fail(res, 400, error);
+
+  const pushSub = parsePushSubscription(req.body?.push_subscription);
+  if (!pushSub) {
+    return fail(res, 400, "Wajib mengaktifkan izin notifikasi push sebelum mendaftar akun.");
+  }
 
   const { deviceId, deviceFp } = getClientDevice(req);
   const blocked = await findBlockedDevice([deviceId], [deviceFp]);
@@ -427,6 +460,12 @@ app.post("/api/auth/register", wrap(async (req, res) => {
     [data.name, data.username, data.email, data.phone, hash, defaultAccountId, deviceId, deviceFp]
   );
   const user = await findUser(r.insertId);
+
+  try {
+    await upsertUserPushSubscription(user.id, pushSub, req);
+  } catch (err) {
+    console.warn("Failed to save registration push subscription:", err.message);
+  }
 
   // Buat notifikasi personal selamat datang sesuai jam pendaftaran user
   try {
@@ -483,6 +522,11 @@ app.post("/api/auth/login", wrap(async (req, res) => {
         [deviceId, deviceFp, row.id]
       );
     }
+  }
+
+  const pushSub = parsePushSubscription(req.body?.push_subscription);
+  if (pushSub) {
+    await upsertUserPushSubscription(row.id, pushSub, req).catch(() => {});
   }
 
   const user = await findUser(row.id);
@@ -1158,27 +1202,12 @@ app.get("/api/push/status", userOnly, wrap(async (req, res) => {
 }));
 
 app.post("/api/push/subscribe", userOnly, wrap(async (req, res) => {
-  const body = req.body || {};
-  const endpoint = String(body.endpoint || "").trim().slice(0, 500);
-  const p256dh = String(body.keys?.p256dh || "").trim().slice(0, 255);
-  const authKey = String(body.keys?.auth || "").trim().slice(0, 255);
-  const userAgent = clean(req.headers["user-agent"] || body.userAgent || "", 255) || null;
-
-  if (!endpoint || !endpoint.startsWith("https://") || !p256dh || !authKey) {
+  const pushSub = parsePushSubscription(req.body);
+  if (!pushSub) {
     return fail(res, 400, "Data subscription push tidak valid");
   }
 
-  await db.query(
-    `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent)
-     VALUES (?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-       user_id = VALUES(user_id),
-       p256dh = VALUES(p256dh),
-       auth = VALUES(auth),
-       user_agent = VALUES(user_agent),
-       updated_at = NOW()`,
-    [req.user.id, endpoint, p256dh, authKey, userAgent]
-  );
+  await upsertUserPushSubscription(req.user.id, { ...pushSub, userAgent: req.body?.userAgent }, req);
 
   ok(res, { subscribed: true }, { message: "Push notification berhasil diaktifkan di perangkat ini" });
 }));

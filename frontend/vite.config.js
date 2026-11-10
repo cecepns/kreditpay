@@ -40,6 +40,10 @@ export default defineConfig({
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,png,avif}"],
       },
+      devOptions: {
+        enabled: true,
+        type: "module",
+      },
     }),
   ],
 });
