@@ -248,23 +248,20 @@ export default function Landing() {
                 Solusi pembiayaan dana tunai terpercaya bersama <strong className="text-slate-900">Fastkredit</strong>. Nikmati kemudahan pengajuan dengan plafon limit hingga <strong className="text-primary-800">Rp 500.000.000</strong>, bunga ringan flat 2%/tahun, dan pencairan instan langsung ke rekening bank Anda.
               </p>
 
-              {/* Ajakan Wajib Install Aplikasi Sebelum Pengajuan */}
+              {/* Ajakan Download Aplikasi Sebelum Pengajuan */}
               {!isStandalone && (
-                <div className="mt-6 rounded-2xl border border-amber-200/90 bg-gradient-to-r from-amber-50/90 via-white to-primary-50/80 p-4 shadow-sm ring-1 ring-amber-100/70 text-left">
+                <div className="mt-6 rounded-2xl border border-primary-200/90 bg-gradient-to-r from-primary-50/90 via-white to-indigo-50/80 p-4 shadow-sm ring-1 ring-primary-100/70 text-left">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700 ring-1 ring-amber-200/80 mt-0.5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-100 text-primary-700 ring-1 ring-primary-200/80">
                         <Smartphone className="h-5 w-5" />
                       </span>
                       <div className="min-w-0">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800">
-                          Wajib Instal Aplikasi
-                        </span>
-                        <p className="mt-1 text-sm font-black text-slate-900 leading-snug">
-                          Download aplikasinya untuk kemudahan transaksi Anda.
+                        <p className="text-sm font-black text-slate-900 leading-snug">
+                          Download Aplikasi Sekarang
                         </p>
-                        <p className="mt-1 text-xs font-semibold text-slate-600 leading-relaxed">
-                          Ayo cairkan pinjaman Anda, namun instal aplikasi <strong>Fastkredit</strong> terlebih dahulu sebelum melanjutkan pengajuan.
+                        <p className="mt-0.5 text-xs font-semibold text-slate-600 leading-relaxed">
+                          Download aplikasinya untuk kemudahan transaksi Anda
                         </p>
                       </div>
                     </div>
@@ -280,7 +277,7 @@ export default function Landing() {
                       ) : (
                         <Download className="h-4 w-4" />
                       )}
-                      <span>{installing ? "Menyiapkan..." : "Instal Aplikasi"}</span>
+                      <span>{installing ? "Menyiapkan..." : "Download Sekarang"}</span>
                     </button>
                   </div>
                 </div>
@@ -672,7 +669,7 @@ export default function Landing() {
           <p className="mt-4 text-xs sm:text-sm font-medium text-white/80 max-w-xl mx-auto leading-relaxed">
             {isStandalone
               ? "Daftarkan diri Anda dalam 2 menit. Nikmati kemudahan proses instan, bunga ringan, dan layanan pelanggan prioritas bersama Fastkredit."
-              : "Download aplikasinya untuk kemudahan transaksi Anda. Ayo cairkan pinjaman Anda dengan menginstal aplikasi Fastkredit terlebih dahulu."}
+              : "Download aplikasinya untuk kemudahan transaksi Anda."}
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -688,7 +685,7 @@ export default function Landing() {
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
-                <span>{installing ? "Menyiapkan..." : "Instal Aplikasi Dulu"}</span>
+                <span>{installing ? "Menyiapkan..." : "Download Aplikasi Sekarang"}</span>
               </button>
             )}
             <Link
