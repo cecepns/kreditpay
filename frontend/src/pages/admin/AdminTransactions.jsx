@@ -140,11 +140,11 @@ export default function AdminTransactions() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-800">
-            {typeFilter === "topup" ? "Pengajuan Saldo" : "Transaksi & Pengajuan"}
+            {typeFilter === "topup" ? "Konfirmasi Top Up" : "Transaksi & Pengajuan"}
           </h1>
           <p className="text-sm font-semibold text-slate-500">
             {typeFilter === "topup"
-              ? "Verifikasi bukti transfer pengajuan top up saldo dan proses persetujuan manual."
+              ? "Verifikasi bukti transfer konfirmasi top up saldo dan proses persetujuan manual."
               : "Kelola pesanan pulsa, transaksi PPOB, top up saldo, verifikasi bukti transfer, dan proses persetujuan manual."}
           </p>
         </div>
@@ -203,7 +203,7 @@ export default function AdminTransactions() {
               className="w-full sm:w-auto rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-xs font-extrabold text-slate-700 focus:outline-none"
             >
               <option value="">Semua Jenis</option>
-              <option value="topup">Pengajuan Saldo (Top Up)</option>
+              <option value="topup">Konfirmasi Top Up</option>
               <option value="ppob">Pulsa &amp; Tagihan</option>
               <option value="transfer_out">Transfer Keluar</option>
               <option value="transfer_in">Transfer Masuk</option>

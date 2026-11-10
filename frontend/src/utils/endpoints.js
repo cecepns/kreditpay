@@ -45,6 +45,13 @@ export const API_ENDPOINTS = {
   },
   TRANSACTIONS: { LIST: "/transactions" },
   NOTIFICATIONS: { LIST: "/notifications" },
+  PUSH: {
+    VAPID_PUBLIC_KEY: "/push/vapid-public-key",
+    STATUS: "/push/status",
+    SUBSCRIBE: "/push/subscribe",
+    UNSUBSCRIBE: "/push/unsubscribe",
+    TEST: "/push/test",
+  },
   ADMIN: {
     USERS: {
       LIST: "/admin/users",
@@ -55,7 +62,14 @@ export const API_ENDPOINTS = {
       DEFAULT_ACCOUNT_ID: "/admin/users/default-account-id",
     },
     BANKS: { LIST: "/admin/banks", DETAIL: (id) => `/admin/banks/${id}` },
-    NOTIFICATIONS: { LIST: "/admin/notifications", DETAIL: (id) => `/admin/notifications/${id}` },
+    NOTIFICATIONS: {
+      LIST: "/admin/notifications",
+      DETAIL: (id) => `/admin/notifications/${id}`,
+      RESEND_PUSH: (id) => `/admin/notifications/${id}/resend-push`,
+    },
+    PUSH: {
+      STATS: "/admin/push/stats",
+    },
     TRANSACTIONS: {
       LIST: "/admin/transactions",
       STATUS: (id) => `/admin/transactions/${id}/status`,

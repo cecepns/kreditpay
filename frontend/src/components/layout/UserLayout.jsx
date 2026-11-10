@@ -1,8 +1,11 @@
+import { useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Bell } from "lucide-react";
+import toast from "react-hot-toast";
+import { Bell, BellRing } from "lucide-react";
 import useAuth from "@/hooks/useAuth";
 import useFetch from "@/hooks/useFetch";
 import { API_ENDPOINTS } from "@/utils/endpoints";
+import { syncExistingPushSubscription } from "@/utils/push";
 import BottomNav from "@/components/layout/BottomNav";
 import HelpButton from "@/components/layout/HelpButton";
 import logoIcon from "@/assets/logo-icon.png";
@@ -12,10 +15,40 @@ const TITLES = { "/app/riwayat": "Riwayat Transaksi", "/app/notifikasi": "Notifi
 export default function UserLayout() {
   const { user } = useAuth();
   const { pathname } = useLocation();
-  const { data } = useFetch(API_ENDPOINTS.NOTIFICATIONS.LIST, { limit: 10 });
+  const { data, reload: reloadNotifs } = useFetch(API_ENDPOINTS.NOTIFICATIONS.LIST, { limit: 10 });
   const title = TITLES[pathname];
   const hasNotif = (data?.pagination?.total || 0) > 0;
   const isPaylater = pathname.startsWith("/app/paylater");
+
+  useEffect(() => {
+    if (user?.id) {
+      syncExistingPushSubscription();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return undefined;
+    const onSwMessage = (event) => {
+      if (event?.data?.type !== "PUSH_RECEIVED") return;
+      const n = event.data.notification || {};
+      reloadNotifs();
+      window.dispatchEvent(new CustomEvent("app-push-received", { detail: n }));
+      toast(
+        () => (
+          <div className="flex items-start gap-2.5">
+            <BellRing className="h-4 w-4 text-primary-700 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-xs font-extrabold text-slate-800 line-clamp-1">{n.title || "Notifikasi Baru"}</p>
+              {n.body && <p className="text-[11px] font-medium text-slate-600 line-clamp-2 mt-0.5">{n.body}</p>}
+            </div>
+          </div>
+        ),
+        { duration: 5000 }
+      );
+    };
+    navigator.serviceWorker.addEventListener("message", onSwMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onSwMessage);
+  }, [reloadNotifs]);
 
   if (isPaylater) {
     return (

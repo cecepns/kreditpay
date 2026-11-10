@@ -12,6 +12,7 @@ import Notifications from "@/pages/Notifications";
 import Account from "@/pages/Account";
 import PayLaterApplication from "@/pages/PayLaterApplication";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
+import AdminAccess from "@/pages/admin/AdminAccess";
 import AdminLevels from "@/pages/admin/AdminLevels";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminBanks from "@/pages/admin/AdminBanks";
@@ -86,6 +87,7 @@ export default function App() {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="chat" element={<AdminChat />} />
         <Route path="paylater" element={<AdminPayLater />} />
+        <Route path="access" element={<AdminAccess />} />
         <Route path="levels" element={<AdminLevels />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="banks" element={<AdminBanks />} />

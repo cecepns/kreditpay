@@ -10,7 +10,7 @@ import { playChatNotificationSound } from "@/utils/sound";
 const NAV = [
   { to: "/admin/dashboard", label: "Akses Cepat", icon: LayoutGrid },
   { to: "/admin/transactions", label: "Riwayat Transaksi", icon: Receipt },
-  { to: "/admin/notifications", label: "Notifikasi", icon: Bell },
+  { to: "/admin/notifications", label: "Broadcast & Notif", icon: Bell },
   { to: "/admin/users", label: "Data Pengguna", icon: Users },
   { to: "/admin/settings", label: "Pengaturan URL Web", icon: Globe },
 ];

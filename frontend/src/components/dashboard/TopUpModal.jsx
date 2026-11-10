@@ -1,38 +1,60 @@
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { ArrowLeft, Check, Copy, ImagePlus, TriangleAlert, UploadCloud, X } from "lucide-react";
+import { ArrowLeft, Check, Copy, TriangleAlert, UploadCloud, X } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import LoadingTransition from "@/components/ui/LoadingTransition";
 import useAuth from "@/hooks/useAuth";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { get, upload } from "@/utils/request";
 import { digitsOnly, formatRupiah } from "@/utils/format";
 
 const PRESET_AMOUNTS = [1000000, 2500000, 3500000, 5000000, 10000000, 20000000];
+const generateUniqueCode = () => Math.floor(100 + Math.random() * 900);
 
 export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }) {
   const { user } = useAuth();
   const [step, setStep] = useState("form"); // "form" | "confirm" | "upload"
   const [amount, setAmount] = useState("");
+  const [uniqueCode, setUniqueCode] = useState(generateUniqueCode);
   const [banks, setBanks] = useState([]);
   const [selectedBankId, setSelectedBankId] = useState(null);
   const [loadingBanks, setLoadingBanks] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(null);
   const [reference, setReference] = useState("");
 
   // Bukti pembayaran
   const [proofFile, setProofFile] = useState(null);
   const [proofPreview, setProofPreview] = useState(null);
   const fileInputRef = useRef(null);
+  const transitionTimerRef = useRef(null);
+  const isOpenRef = useRef(open);
 
-  // Ambil daftar rekening bank aktif
+  isOpenRef.current = open;
+
+  const clearTransition = () => {
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+    setLoadingStage(null);
+  };
+
+  // Ambil daftar rekening bank aktif & acak kode unik 3 digit otomatis saat masuk menu topup
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      clearTransition();
+      return;
+    }
+    clearTransition();
     setStep("form");
     setAmount(initialAmount ? String(initialAmount) : "");
+    setUniqueCode(generateUniqueCode());
     setProofFile(null);
     setProofPreview(null);
+    setSubmitting(false);
     setLoadingBanks(true);
     get(API_ENDPOINTS.BANKS.LIST)
       .then((res) => {
@@ -42,9 +64,27 @@ export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }
       })
       .catch((err) => toast.error(err.message))
       .finally(() => setLoadingBanks(false));
-  }, [open]);
+
+    return () => {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
+      }
+    };
+  }, [open, initialAmount]);
+
+  const handleClose = () => {
+    if (submitting) return;
+    clearTransition();
+    onClose?.();
+  };
 
   const selectedBank = banks.find((b) => b.id === Number(selectedBankId)) || banks[0];
+  const baseAmount = Number(amount) || 0;
+  const totalAmount = baseAmount > 0 ? baseAmount + uniqueCode : 0;
+  const formattedTotal = formatRupiah(totalAmount);
+  const totalMainPart = formattedTotal.length > 3 ? formattedTotal.slice(0, -3) : formattedTotal;
+  const totalUniqueDigits = formattedTotal.length > 3 ? formattedTotal.slice(-3) : "";
 
   const handleCopy = (text, fieldName) => {
     if (!text) return;
@@ -62,7 +102,18 @@ export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }
 
     const random10 = Math.floor(1000000000 + Math.random() * 9000000000);
     setReference(`USR${random10}`);
-    setStep("confirm");
+
+    clearTransition();
+    setLoadingStage({
+      key: `topup_confirm_${Date.now()}`,
+      title: "Menyiapkan Konfirmasi Top Up...",
+      subtitle: "Sistem sedang membuat rincian pembayaran dan kode unik Anda.",
+    });
+    transitionTimerRef.current = setTimeout(() => {
+      transitionTimerRef.current = null;
+      setLoadingStage(null);
+      setStep("confirm");
+    }, 5000);
   };
 
   const handleFileChange = (e) => {
@@ -89,9 +140,16 @@ export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }
     }
 
     setSubmitting(true);
+    setLoadingStage({
+      key: `topup_upload_${Date.now()}`,
+      title: "Mengirim Bukti Pembayaran...",
+      subtitle: "Mohon tunggu, sistem sedang memproses dan menyimpan bukti transfer Anda.",
+    });
+
+    const startTime = Date.now();
     try {
       const fd = new FormData();
-      fd.append("amount", Number(amount));
+      fd.append("amount", totalAmount);
       fd.append("bank_id", selectedBank?.id);
       fd.append("bank_name", selectedBank?.bank_name);
       fd.append("account_number", selectedBank?.account_number);
@@ -100,10 +158,20 @@ export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }
       fd.append("proof", proofFile);
 
       const res = await upload(API_ENDPOINTS.WALLET.TOPUP, fd);
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 5000 - elapsed);
+      if (remaining > 0) {
+        await new Promise((resolve) => {
+          transitionTimerRef.current = setTimeout(resolve, remaining);
+        });
+      }
+      if (!isOpenRef.current) return;
       toast.success(res.message || "Bukti pembayaran berhasil diunggah! Menunggu verifikasi admin.");
       onDone?.();
-      onClose();
+      clearTransition();
+      onClose?.();
     } catch (err) {
+      clearTransition();
       toast.error(err.message);
     } finally {
       setSubmitting(false);
@@ -115,10 +183,18 @@ export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }
   return (
     <Modal
       open={open}
-      onClose={onClose}
-      title={step === "form" ? "Top Up Saldo" : undefined}
+      onClose={handleClose}
+      title={!loadingStage && step === "form" ? "Top Up Saldo" : undefined}
     >
-      {step === "form" && (
+      {loadingStage ? (
+        <LoadingTransition
+          title={loadingStage.title}
+          subtitle={loadingStage.subtitle}
+          progressKey={loadingStage.key}
+        />
+      ) : (
+        <>
+          {step === "form" && (
         <form onSubmit={handleProceedToConfirm} className="space-y-5" noValidate>
           <div>
             <label className="mb-2 block text-xs font-extrabold uppercase tracking-wide text-slate-400">
@@ -302,11 +378,31 @@ export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }
 
             <hr className="my-2 border-slate-200/80" />
 
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold text-slate-500">Total Bayar</span>
-              <span className="text-xl font-black text-primary-700">
-                {formatRupiah(amount)}
-              </span>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold text-slate-500">Total Bayar</span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(totalAmount, "Total Bayar")}
+                  className="group flex items-center gap-1.5 text-xl font-black text-primary-700"
+                  title="Salin Total Bayar"
+                >
+                  <span>
+                    {totalMainPart}
+                    {totalUniqueDigits && (
+                      <span className="ml-0.5 inline-block rounded-lg bg-emerald-100 px-1.5 py-0.5 text-emerald-700 ring-1 ring-emerald-300">
+                        {totalUniqueDigits}
+                      </span>
+                    )}
+                  </span>
+                  <Copy className="h-3.5 w-3.5 text-slate-400 group-hover:text-primary-600" />
+                </button>
+              </div>
+              {uniqueCode > 0 && (
+                <p className="text-right text-[11px] font-bold text-slate-400">
+                  Termasuk kode unik 3 digit ({uniqueCode})
+                </p>
+              )}
             </div>
           </div>
 
@@ -361,7 +457,7 @@ export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }
             </div>
             <div className="text-right">
               <p className="text-slate-400 font-bold">Total Transfer</p>
-              <p className="font-black text-primary-700 text-sm">{formatRupiah(amount)}</p>
+              <p className="font-black text-primary-700 text-sm">{formattedTotal}</p>
             </div>
           </div>
 
@@ -448,6 +544,8 @@ export default function TopUpModal({ open, onClose, onDone, initialAmount = "" }
             </button>
           </div>
         </div>
+      )}
+        </>
       )}
     </Modal>
   );

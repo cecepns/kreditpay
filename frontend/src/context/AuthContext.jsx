@@ -3,6 +3,7 @@ import { TOKEN_KEY } from "@/utils/api";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { get, post } from "@/utils/request";
 import { getDeviceFingerprint, getDeviceId } from "@/utils/device";
+import { unsubscribeDeviceWithToken } from "@/utils/push";
 
 export const AuthContext = createContext(null);
 
@@ -37,7 +38,12 @@ export function AuthProvider({ children }) {
       user, loading, refresh, setUser,
       login: (identifier, password) => authenticate(API_ENDPOINTS.AUTH.LOGIN, { identifier, password, pin: password }),
       register: (payload) => authenticate(API_ENDPOINTS.AUTH.REGISTER, { ...payload, pin: payload.password || payload.pin, password: payload.password || payload.pin }),
-      logout: () => { localStorage.removeItem(TOKEN_KEY); setUser(null); },
+      logout: () => {
+        const token = localStorage.getItem(TOKEN_KEY);
+        if (token) unsubscribeDeviceWithToken(token);
+        localStorage.removeItem(TOKEN_KEY);
+        setUser(null);
+      },
     }),
     [user, loading, refresh, authenticate]
   );

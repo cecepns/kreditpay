@@ -72,7 +72,7 @@ export default function AdminDashboard() {
             <span className="grid h-14 w-14 place-items-center rounded-2xl bg-teal-50 text-teal-600 transition group-hover:scale-110">
               <Wallet className="h-7 w-7" />
             </span>
-            <p className="mt-3 text-xs font-extrabold text-slate-800">Pengajuan Saldo</p>
+            <p className="mt-3 text-xs font-extrabold text-slate-800">Konfirmasi Top Up</p>
           </Link>
 
           <Link
@@ -95,7 +95,7 @@ export default function AdminDashboard() {
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Link
-            to="/admin/levels"
+            to="/admin/access"
             className="group flex flex-col items-center justify-center rounded-3xl bg-white p-5 text-center shadow-sm ring-1 ring-slate-100 transition hover:shadow-md hover:ring-primary-300"
           >
             <span className="grid h-14 w-14 place-items-center rounded-2xl bg-indigo-50 text-indigo-600 transition group-hover:scale-110">

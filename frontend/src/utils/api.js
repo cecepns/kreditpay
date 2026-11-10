@@ -4,6 +4,12 @@ import { getDeviceFingerprint, getDeviceId } from "@/utils/device";
 
 export const TOKEN_KEY = "kreditpay_token";
 export const BLOCK_NOTICE_KEY = "fk_block_notice";
+export const BLOCKED_DEVICE_MESSAGE = "Device tidak mendukung";
+
+export const normalizeBlockedMessage = (msg) => {
+  if (!msg || /blokir/i.test(String(msg))) return BLOCKED_DEVICE_MESSAGE;
+  return msg;
+};
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -30,13 +36,17 @@ api.interceptors.response.use(
       error.config?.url === API_ENDPOINTS.AUTH.RESET_PASSWORD;
     const isBlocked =
       error.response?.status === 403 &&
-      error.response?.data?.code === "ACCOUNT_BLOCKED";
+      ["ACCOUNT_BLOCKED", "DEVICE_BLOCKED"].includes(error.response?.data?.code);
+
+    if (isBlocked && error.response?.data) {
+      error.response.data.message = normalizeBlockedMessage(error.response.data.message);
+    }
 
     if ((error.response?.status === 401 || isBlocked) && !isAuthRoute) {
       localStorage.removeItem(TOKEN_KEY);
-      if (isBlocked && error.response?.data?.message) {
+      if (isBlocked) {
         try {
-          sessionStorage.setItem(BLOCK_NOTICE_KEY, error.response.data.message);
+          sessionStorage.setItem(BLOCK_NOTICE_KEY, BLOCKED_DEVICE_MESSAGE);
         } catch {}
       }
       if (window.location.pathname !== "/login") window.location.assign("/login");

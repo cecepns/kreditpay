@@ -9,7 +9,7 @@ import Logo from "@/components/Logo";
 import LoginIllustration from "@/components/LoginIllustration";
 import FloatingInstallButton from "@/components/FloatingInstallButton";
 import ResetPasswordModal from "@/components/auth/ResetPasswordModal";
-import { BLOCK_NOTICE_KEY } from "@/utils/api";
+import { BLOCK_NOTICE_KEY, normalizeBlockedMessage } from "@/utils/api";
 
 export default function Login() {
   const { login } = useAuth();
@@ -25,7 +25,7 @@ export default function Login() {
       const msg = sessionStorage.getItem(BLOCK_NOTICE_KEY);
       if (msg) {
         sessionStorage.removeItem(BLOCK_NOTICE_KEY);
-        toast.error(msg);
+        toast.error(normalizeBlockedMessage(msg));
       }
     } catch {}
   }, []);

@@ -7,6 +7,7 @@ const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const webPush = require("web-push");
 
 const PORT = process.env.PORT || 5000;
 const UPLOAD_DIR = path.join(__dirname, "uploads-kreditpay");
@@ -22,6 +23,151 @@ const db = mysql.createPool({
   connectionLimit: 10,
   decimalNumbers: true,
 });
+
+const USER_NOTIF_WHERE =
+  "channel IN ('web', 'both') AND ((target_type = 'all' AND user_id IS NULL) OR user_id = ? OR EXISTS (SELECT 1 FROM notification_targets nt WHERE nt.notification_id = notifications.id AND nt.user_id = ?))";
+
+let vapidConfigCache = null;
+
+async function ensureVapidConfig() {
+  if (vapidConfigCache) return vapidConfigCache;
+
+  const envPub = clean(process.env.VAPID_PUBLIC_KEY || "", 255);
+  const envPriv = clean(process.env.VAPID_PRIVATE_KEY || "", 255);
+  const envSubject = clean(process.env.VAPID_SUBJECT || "mailto:support@fastkredit.id", 150) || "mailto:support@fastkredit.id";
+
+  if (envPub && envPriv) {
+    webPush.setVapidDetails(envSubject, envPub, envPriv);
+    vapidConfigCache = { publicKey: envPub, privateKey: envPriv, subject: envSubject };
+    return vapidConfigCache;
+  }
+
+  const [rows] = await db.query(
+    "SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('vapid_public_key', 'vapid_private_key', 'vapid_subject')"
+  );
+  const map = rows.reduce((acc, r) => {
+    acc[r.setting_key] = r.setting_value;
+    return acc;
+  }, {});
+
+  let publicKey = map.vapid_public_key;
+  let privateKey = map.vapid_private_key;
+  const subject = map.vapid_subject || envSubject;
+
+  if (!publicKey || !privateKey) {
+    const generated = webPush.generateVAPIDKeys();
+    publicKey = generated.publicKey;
+    privateKey = generated.privateKey;
+    await db.query(
+      "INSERT INTO app_settings (setting_key, setting_value, description) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
+      ["vapid_public_key", publicKey, "VAPID Public Key untuk Native Web Push Notification"]
+    );
+    await db.query(
+      "INSERT INTO app_settings (setting_key, setting_value, description) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
+      ["vapid_private_key", privateKey, "VAPID Private Key untuk Native Web Push Notification (rahasia)"]
+    );
+    await db.query(
+      "INSERT IGNORE INTO app_settings (setting_key, setting_value, description) VALUES (?, ?, ?)",
+      ["vapid_subject", subject, "VAPID Contact Subject untuk Native Web Push Notification"]
+    );
+  }
+
+  webPush.setVapidDetails(subject, publicKey, privateKey);
+  vapidConfigCache = { publicKey, privateKey, subject };
+  return vapidConfigCache;
+}
+
+const sanitizePushUrl = (raw) => {
+  const s = clean(raw || "", 255);
+  if (!s) return "/app/notifikasi";
+  if (s.startsWith("/") && !s.startsWith("//")) return s;
+  try {
+    const u = new URL(s);
+    if (u.protocol === "https:" || u.protocol === "http:") return s;
+  } catch {
+    // fallback
+  }
+  return "/app/notifikasi";
+};
+
+async function sendPushToUsers(userIdsOrNull, payload, { onlyEndpoint = null } = {}) {
+  try {
+    await ensureVapidConfig();
+
+    const params = [];
+    let sql = `
+      SELECT ps.id, ps.user_id, ps.endpoint, ps.p256dh, ps.auth
+      FROM push_subscriptions ps
+      JOIN users u ON u.id = ps.user_id
+      WHERE u.is_blocked = 0
+    `;
+
+    if (onlyEndpoint) {
+      sql += " AND ps.endpoint = ?";
+      params.push(onlyEndpoint);
+    }
+
+    if (Array.isArray(userIdsOrNull)) {
+      const cleanIds = [...new Set(userIdsOrNull.map((x) => parseInt(x, 10)).filter((n) => Number.isInteger(n) && n > 0))];
+      if (cleanIds.length === 0) {
+        return { sent: 0, failed: 0, totalTargets: 0 };
+      }
+      sql += ` AND ps.user_id IN (${cleanIds.map(() => "?").join(",")})`;
+      params.push(...cleanIds);
+    }
+
+    const [subs] = await db.query(sql, params);
+    if (!subs.length) {
+      return { sent: 0, failed: 0, totalTargets: 0 };
+    }
+
+    const bodyJson = JSON.stringify({
+      title: payload.title || "Fastkredit",
+      body: payload.body || "",
+      url: sanitizePushUrl(payload.url),
+      notificationId: payload.notificationId || null,
+      tag: payload.tag || (payload.notificationId ? `fk-notif-${payload.notificationId}` : `fk-push-${Date.now()}`),
+      timestamp: Date.now(),
+    });
+
+    let sent = 0;
+    let failed = 0;
+    const staleIds = [];
+
+    await Promise.allSettled(
+      subs.map(async (sub) => {
+        try {
+          await webPush.sendNotification(
+            {
+              endpoint: sub.endpoint,
+              keys: { p256dh: sub.p256dh, auth: sub.auth },
+            },
+            bodyJson,
+            { TTL: 86400 }
+          );
+          sent += 1;
+        } catch (err) {
+          failed += 1;
+          if (err?.statusCode === 404 || err?.statusCode === 410) {
+            staleIds.push(sub.id);
+          }
+        }
+      })
+    );
+
+    if (staleIds.length > 0) {
+      await db.query(
+        `DELETE FROM push_subscriptions WHERE id IN (${staleIds.map(() => "?").join(",")})`,
+        staleIds
+      ).catch(() => {});
+    }
+
+    return { sent, failed, totalTargets: subs.length };
+  } catch (err) {
+    console.warn("sendPushToUsers error:", err.message);
+    return { sent: 0, failed: 0, totalTargets: 0 };
+  }
+}
 
 /* ───────────── Helpers ───────────── */
 class HttpError extends Error {
@@ -51,6 +197,12 @@ const rules = {
 };
 
 const USER_FIELDS = "id,name,username,email,phone,role,level,avatar,balance,paylater_limit,paylater_used,account_id,device_id,device_fingerprint,is_blocked,blocked_reason,created_at";
+const BLOCKED_DEVICE_MESSAGE = "Device tidak mendukung";
+const resolveBlockedMessage = (reason) => {
+  const cleaned = clean(reason, 255);
+  if (!cleaned || /blokir/i.test(cleaned)) return BLOCKED_DEVICE_MESSAGE;
+  return cleaned;
+};
 const findUser = async (id) => (await db.query(`SELECT ${USER_FIELDS} FROM users WHERE id=?`, [id]))[0][0];
 const getClientDevice = (req) => {
   const rawId = req.body?.device_id ?? req.headers["x-device-id"] ?? "";
@@ -172,7 +324,7 @@ const auth = (roles) => async (req, res, next) => {
         return res.status(403).json({
           success: false,
           code: "ACCOUNT_BLOCKED",
-          message: dbUser.blocked_reason || "Akun Anda telah diblokir oleh Admin.",
+          message: resolveBlockedMessage(dbUser.blocked_reason),
         });
       }
 
@@ -185,7 +337,7 @@ const auth = (roles) => async (req, res, next) => {
         return res.status(403).json({
           success: false,
           code: "ACCOUNT_BLOCKED",
-          message: blocked.reason || "Perangkat / IMEI ini telah diblokir oleh Admin.",
+          message: resolveBlockedMessage(blocked.reason),
         });
       }
 
@@ -264,7 +416,7 @@ app.post("/api/auth/register", wrap(async (req, res) => {
     return res.status(403).json({
       success: false,
       code: "DEVICE_BLOCKED",
-      message: blocked.reason || "Perangkat / IMEI Anda telah diblokir. Tidak dapat mendaftar akun baru menggunakan HP ini.",
+      message: resolveBlockedMessage(blocked.reason),
     });
   }
 
@@ -279,7 +431,7 @@ app.post("/api/auth/register", wrap(async (req, res) => {
   // Buat notifikasi personal selamat datang sesuai jam pendaftaran user
   try {
     await db.query(
-      "INSERT INTO notifications (user_id, title, body, created_at) VALUES (?, ?, ?, NOW())",
+      "INSERT INTO notifications (user_id, target_type, channel, title, body, created_at) VALUES (?, 'single', 'web', ?, ?, NOW())",
       [
         user.id,
         `Halo ${data.name}`,
@@ -308,7 +460,7 @@ app.post("/api/auth/login", wrap(async (req, res) => {
       return res.status(403).json({
         success: false,
         code: "ACCOUNT_BLOCKED",
-        message: row.blocked_reason || "Akun Anda telah diblokir oleh Admin.",
+        message: resolveBlockedMessage(row.blocked_reason),
       });
     }
 
@@ -318,7 +470,7 @@ app.post("/api/auth/login", wrap(async (req, res) => {
       return res.status(403).json({
         success: false,
         code: "ACCOUNT_BLOCKED",
-        message: blocked.reason || "Perangkat / IMEI Anda telah diblokir oleh Admin.",
+        message: resolveBlockedMessage(blocked.reason),
       });
     }
 
@@ -354,7 +506,7 @@ app.post("/api/auth/forgot-password/check", wrap(async (req, res) => {
     return res.status(403).json({
       success: false,
       code: "ACCOUNT_BLOCKED",
-      message: row.blocked_reason || "Akun Anda telah diblokir oleh Admin.",
+      message: resolveBlockedMessage(row.blocked_reason),
     });
   }
 
@@ -364,7 +516,7 @@ app.post("/api/auth/forgot-password/check", wrap(async (req, res) => {
     return res.status(403).json({
       success: false,
       code: "ACCOUNT_BLOCKED",
-      message: blocked.reason || "Perangkat / IMEI Anda telah diblokir oleh Admin.",
+      message: resolveBlockedMessage(blocked.reason),
     });
   }
 
@@ -401,7 +553,7 @@ app.post("/api/auth/reset-password", wrap(async (req, res) => {
     return res.status(403).json({
       success: false,
       code: "ACCOUNT_BLOCKED",
-      message: row.blocked_reason || "Akun Anda telah diblokir oleh Admin.",
+      message: resolveBlockedMessage(row.blocked_reason),
     });
   }
 
@@ -411,7 +563,7 @@ app.post("/api/auth/reset-password", wrap(async (req, res) => {
     return res.status(403).json({
       success: false,
       code: "ACCOUNT_BLOCKED",
-      message: blocked.reason || "Perangkat / IMEI Anda telah diblokir oleh Admin.",
+      message: resolveBlockedMessage(blocked.reason),
     });
   }
 
@@ -452,8 +604,8 @@ app.get("/api/dashboard", userOnly, wrap(async (req, res) => {
   if (!user) return fail(res, 401, "Akun tidak ditemukan");
 
   const [[{ total }]] = await db.query(
-    "SELECT COUNT(*) AS total FROM notifications WHERE user_id IS NULL OR user_id = ?",
-    [req.user.id]
+    `SELECT COUNT(*) AS total FROM notifications WHERE ${USER_NOTIF_WHERE}`,
+    [req.user.id, req.user.id]
   );
   ok(res, {
     balance: user.balance,
@@ -466,7 +618,7 @@ app.get("/api/dashboard", userOnly, wrap(async (req, res) => {
 /* ── Wallet ── */
 app.post("/api/wallet/topup", userOnly, uploadProof.single("proof"), wrap(async (req, res) => {
   const amount = amountOf(req.body.amount);
-  if (amount < 10000 || amount > 50000000) return fail(res, 400, "Nominal top up Rp10.000 - Rp50.000.000");
+  if (amount < 10000 || amount > 50000999) return fail(res, 400, "Nominal top up Rp10.000 - Rp50.000.000");
 
   let bankLabel = null;
   if (req.body.bank_id) {
@@ -802,12 +954,12 @@ app.put("/api/admin/paylater/:id/status", adminOnly, wrap(async (req, res) => {
       const { title, body } = formatAccNotification(userName, nominalStr, sMap);
 
       await c.query(
-        "INSERT INTO notifications (user_id, title, body, created_at) VALUES (?, ?, ?, NOW())",
+        "INSERT INTO notifications (user_id, target_type, channel, title, body, created_at) VALUES (?, 'single', 'both', ?, ?, NOW())",
         [appRow.user_id, title, body]
       );
     } else if (status === "rejected") {
       await c.query(
-        "INSERT INTO notifications (user_id, title, body, created_at) VALUES (?, ?, ?, NOW())",
+        "INSERT INTO notifications (user_id, target_type, channel, title, body, created_at) VALUES (?, 'single', 'both', ?, ?, NOW())",
         [
           appRow.user_id,
           "Pengajuan Pinjaman Belum Disetujui",
@@ -816,6 +968,21 @@ app.put("/api/admin/paylater/:id/status", adminOnly, wrap(async (req, res) => {
       );
     }
   });
+
+  if (status === "approved" || status === "rejected") {
+    const [[latestNotif]] = await db.query(
+      "SELECT id, title, body FROM notifications WHERE user_id=? ORDER BY id DESC LIMIT 1",
+      [appRow.user_id]
+    ).catch(() => [[]]);
+    if (latestNotif) {
+      sendPushToUsers([appRow.user_id], {
+        title: latestNotif.title,
+        body: latestNotif.body,
+        url: "/app/notifikasi",
+        notificationId: latestNotif.id,
+      }).catch(() => {});
+    }
+  }
 
   ok(res, null, { message: `Pengajuan Pinjaman berhasil diubah ke status: ${status}` });
 }));
@@ -853,6 +1020,7 @@ app.post("/api/admin/paylater/bulk-approve", adminOnly, wrap(async (req, res) =>
   );
   const sMap = settingRows.reduce((acc, r) => { acc[r.setting_key] = r.setting_value; return acc; }, {});
 
+  const approvedNotifs = [];
   await withTx(async (c) => {
     for (const app of applications) {
       const limitToSet = app.requested_amount > 0 ? Number(app.requested_amount) : fallbackLimit;
@@ -868,12 +1036,19 @@ app.post("/api/admin/paylater/bulk-approve", adminOnly, wrap(async (req, res) =>
 
       const { title, body } = formatAccNotification(userName, nominalStr, sMap);
 
-      await c.query(
-        "INSERT INTO notifications (user_id, title, body, created_at) VALUES (?, ?, ?, NOW())",
+      const [insNotif] = await c.query(
+        "INSERT INTO notifications (user_id, target_type, channel, title, body, created_at) VALUES (?, 'single', 'both', ?, ?, NOW())",
         [app.user_id, title, body]
       );
+      approvedNotifs.push({ user_id: app.user_id, title, body, id: insNotif.insertId });
     }
   });
+
+  Promise.allSettled(
+    approvedNotifs.map((n) =>
+      sendPushToUsers([n.user_id], { title: n.title, body: n.body, url: "/app/notifikasi", notificationId: n.id })
+    )
+  ).catch(() => {});
 
   ok(res, { count: applications.length }, {
     message: `Berhasil menyetujui (ACC) ${applications.length} pengajuan Pinjaman sekaligus!`,
@@ -908,18 +1083,24 @@ app.post("/api/admin/paylater/bulk-reject", adminOnly, wrap(async (req, res) => 
 
   const appIds = applications.map((a) => a.id);
   await db.query("UPDATE paylater_applications SET status = 'rejected' WHERE id IN (?)", [appIds]);
+  const rejectTitle = "Pengajuan Pinjaman Belum Disetujui";
+  const rejectBody = "Mohon maaf, pengajuan pinjaman Anda belum dapat disetujui saat ini. Silakan periksa kembali kelengkapan data pengajuan Anda atau hubungi layanan bantuan pelanggan Fastkredit.";
+  const rejectedNotifs = [];
   for (const a of applications) {
     if (a.user_id) {
-      await db.query(
-        "INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)",
-        [
-          a.user_id,
-          "Pengajuan Pinjaman Belum Disetujui",
-          "Mohon maaf, pengajuan pinjaman Anda belum dapat disetujui saat ini. Silakan periksa kembali kelengkapan data pengajuan Anda atau hubungi layanan bantuan pelanggan Fastkredit."
-        ]
+      const [insNotif] = await db.query(
+        "INSERT INTO notifications (user_id, target_type, channel, title, body) VALUES (?, 'single', 'both', ?, ?)",
+        [a.user_id, rejectTitle, rejectBody]
       );
+      rejectedNotifs.push({ user_id: a.user_id, id: insNotif.insertId });
     }
   }
+
+  Promise.allSettled(
+    rejectedNotifs.map((n) =>
+      sendPushToUsers([n.user_id], { title: rejectTitle, body: rejectBody, url: "/app/notifikasi", notificationId: n.id })
+    )
+  ).catch(() => {});
 
   ok(res, { count: applications.length }, {
     message: `Berhasil menolak ${applications.length} pengajuan Pinjaman.`,
@@ -944,24 +1125,102 @@ const NOTIF_SORT = { created_at: "created_at", title: "title" };
 app.get("/api/notifications", userOnly, wrap((req, res) =>
   paginate(req, res, {
     from: "notifications",
-    select: "id,user_id,title,body,created_at",
+    select: "id,user_id,title,body,channel,target_type,click_url,created_at",
     searchCols: ["title", "body"],
     sortable: NOTIF_SORT,
     defaultSort: "created_at",
-    baseWhere: ["(user_id IS NULL OR user_id = ?)"],
-    baseParams: [req.user.id],
+    baseWhere: [USER_NOTIF_WHERE],
+    baseParams: [req.user.id, req.user.id],
   })
 ));
+
+/* ── Native Web Push Subscriptions (User) ── */
+app.get("/api/push/vapid-public-key", wrap(async (req, res) => {
+  const { publicKey } = await ensureVapidConfig();
+  ok(res, { publicKey });
+}));
+
+app.get("/api/push/status", userOnly, wrap(async (req, res) => {
+  const endpoint = clean(req.query.endpoint || "", 500);
+  const [[{ total }]] = await db.query(
+    "SELECT COUNT(*) AS total FROM push_subscriptions WHERE user_id = ?",
+    [req.user.id]
+  );
+  let currentRegistered = false;
+  if (endpoint) {
+    const [[row]] = await db.query(
+      "SELECT id FROM push_subscriptions WHERE user_id = ? AND endpoint = ? LIMIT 1",
+      [req.user.id, endpoint]
+    );
+    currentRegistered = Boolean(row);
+  }
+  ok(res, { totalDevices: Number(total || 0), currentRegistered });
+}));
+
+app.post("/api/push/subscribe", userOnly, wrap(async (req, res) => {
+  const body = req.body || {};
+  const endpoint = String(body.endpoint || "").trim().slice(0, 500);
+  const p256dh = String(body.keys?.p256dh || "").trim().slice(0, 255);
+  const authKey = String(body.keys?.auth || "").trim().slice(0, 255);
+  const userAgent = clean(req.headers["user-agent"] || body.userAgent || "", 255) || null;
+
+  if (!endpoint || !endpoint.startsWith("https://") || !p256dh || !authKey) {
+    return fail(res, 400, "Data subscription push tidak valid");
+  }
+
+  await db.query(
+    `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       user_id = VALUES(user_id),
+       p256dh = VALUES(p256dh),
+       auth = VALUES(auth),
+       user_agent = VALUES(user_agent),
+       updated_at = NOW()`,
+    [req.user.id, endpoint, p256dh, authKey, userAgent]
+  );
+
+  ok(res, { subscribed: true }, { message: "Push notification berhasil diaktifkan di perangkat ini" });
+}));
+
+app.post("/api/push/unsubscribe", userOnly, wrap(async (req, res) => {
+  const endpoint = String(req.body?.endpoint || "").trim().slice(0, 500);
+  if (endpoint) {
+    await db.query("DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?", [req.user.id, endpoint]);
+  }
+  ok(res, { subscribed: false }, { message: "Push notification di perangkat ini dinonaktifkan" });
+}));
+
+app.post("/api/push/test", userOnly, wrap(async (req, res) => {
+  const endpoint = String(req.body?.endpoint || "").trim().slice(0, 500) || null;
+  const stats = await sendPushToUsers(
+    [req.user.id],
+    {
+      title: "Notifikasi Fastkredit Aktif!",
+      body: "Perangkat Anda siap menerima info promo, status pengajuan, dan pengumuman penting.",
+      url: "/app/notifikasi",
+      tag: `fk-test-${req.user.id}`,
+    },
+    { onlyEndpoint: endpoint }
+  );
+  if (stats.totalTargets === 0) {
+    return fail(res, 400, "Perangkat ini belum terdaftar untuk push notification");
+  }
+  if (stats.sent === 0) {
+    return fail(res, 500, "Gagal mengirim uji notifikasi push ke perangkat");
+  }
+  ok(res, stats, { message: "Tes push notification berhasil dikirim ke perangkat ini" });
+}));
 
 /* ── Admin: Users ── */
 app.get("/api/admin/users", adminOnly, wrap((req, res) =>
   paginate(req, res, {
     from: "users",
-    select: `${USER_FIELDS}, EXISTS(SELECT 1 FROM blocked_devices b WHERE (users.device_id IS NOT NULL AND users.device_id <> '' AND b.device_id = users.device_id) OR (users.device_fingerprint IS NOT NULL AND users.device_fingerprint <> '' AND b.fingerprint = users.device_fingerprint)) AS is_device_blocked`,
+    select: `${USER_FIELDS}, EXISTS(SELECT 1 FROM blocked_devices b WHERE (users.device_id IS NOT NULL AND users.device_id <> '' AND b.device_id = users.device_id) OR (users.device_fingerprint IS NOT NULL AND users.device_fingerprint <> '' AND b.fingerprint = users.device_fingerprint)) AS is_device_blocked, (SELECT COUNT(*) FROM push_subscriptions ps WHERE ps.user_id = users.id) AS push_count`,
     searchCols: ["name", "username", "email", "phone", "account_id", "device_id"],
-    sortable: { created_at: "created_at", name: "name", username: "username", balance: "balance", account_id: "account_id", is_blocked: "is_blocked" },
+    sortable: { created_at: "created_at", name: "name", username: "username", level: "level", balance: "balance", account_id: "account_id", is_blocked: "is_blocked" },
     defaultSort: "created_at",
-    filters: { role: "role", is_blocked: "is_blocked" },
+    filters: { role: "role", is_blocked: "is_blocked", level: "level" },
   })
 ));
 
@@ -972,7 +1231,7 @@ app.put("/api/admin/users/:id/status", adminOnly, wrap(async (req, res) => {
   const isBlocked = req.body.is_blocked ? 1 : 0;
   const blockDevice = !!req.body.block_device;
   const customDeviceId = clean(req.body.device_id || "", 128) || null;
-  const reason = clean(req.body.reason || "", 255) || (isBlocked || blockDevice ? "Diblokir oleh Admin" : null);
+  const reason = clean(req.body.reason || "", 255) || (isBlocked || blockDevice ? BLOCKED_DEVICE_MESSAGE : null);
 
   const updatedUser = await withTx(async (c) => {
     const [[target]] = await c.query("SELECT * FROM users WHERE id=? FOR UPDATE", [userId]);
@@ -1002,14 +1261,14 @@ app.put("/api/admin/users/:id/status", adminOnly, wrap(async (req, res) => {
              user_id = VALUES(user_id),
              reason = VALUES(reason),
              blocked_by = VALUES(blocked_by)`,
-          [targetDeviceId, targetFp, userId, reason || "Perangkat / IMEI diblokir oleh Admin", req.user.id]
+          [targetDeviceId, targetFp, userId, reason || BLOCKED_DEVICE_MESSAGE, req.user.id]
         );
       } else if (targetFp) {
         const [[existingFp]] = await c.query("SELECT id FROM blocked_devices WHERE fingerprint=? LIMIT 1", [targetFp]);
         if (!existingFp) {
           await c.query(
             "INSERT INTO blocked_devices (device_id, fingerprint, user_id, reason, blocked_by) VALUES (NULL, ?, ?, ?, ?)",
-            [targetFp, userId, reason || "Perangkat / IMEI diblokir oleh Admin", req.user.id]
+            [targetFp, userId, reason || BLOCKED_DEVICE_MESSAGE, req.user.id]
           );
         }
       }
@@ -1089,7 +1348,7 @@ app.post("/api/admin/users", adminOnly, wrap(async (req, res) => {
   if (x.role === "user") {
     try {
       await db.query(
-        "INSERT INTO notifications (user_id, title, body, created_at) VALUES (?, ?, ?, NOW())",
+        "INSERT INTO notifications (user_id, target_type, channel, title, body, created_at) VALUES (?, 'single', 'web', ?, ?, NOW())",
         [
           r.insertId,
           `Halo ${data.name}`,
@@ -1132,31 +1391,201 @@ app.delete("/api/admin/users/:id", adminOnly, wrap(async (req, res) => {
   ok(res, null, { message: "Pengguna dihapus" });
 }));
 
-/* ── Admin: Notifications ── */
+/* ── Admin: Notifications & Web Push Broadcast ── */
+const ADMIN_NOTIF_SORT = { created_at: "n.created_at", title: "n.title", push_sent: "n.push_sent" };
 app.get("/api/admin/notifications", adminOnly, wrap((req, res) =>
-  paginate(req, res, { from: "notifications", select: "id,title,body,created_at", searchCols: ["title", "body"], sortable: NOTIF_SORT, defaultSort: "created_at" })
+  paginate(req, res, {
+    from: "notifications n LEFT JOIN users u ON u.id = n.user_id",
+    select: `
+      n.id, n.user_id, n.title, n.body, n.channel, n.target_type, n.click_url, n.push_sent, n.push_failed, n.created_at,
+      u.name AS target_user_name, u.username AS target_username,
+      (SELECT COUNT(*) FROM notification_targets nt WHERE nt.notification_id = n.id) AS target_count,
+      (SELECT GROUP_CONCAT(CONCAT(tu.name, ' (@', tu.username, ')') ORDER BY tu.name SEPARATOR ', ')
+       FROM notification_targets nt JOIN users tu ON tu.id = nt.user_id
+       WHERE nt.notification_id = n.id) AS target_users_label
+    `,
+    searchCols: ["n.title", "n.body", "u.name", "u.username"],
+    sortable: ADMIN_NOTIF_SORT,
+    defaultSort: "created_at",
+    filters: { channel: "n.channel", target_type: "n.target_type" },
+  })
 ));
 
-const parseNotif = (b) => {
-  const title = clean(b.title, 150), body = clean(b.body, 2000);
+app.get("/api/admin/push/stats", adminOnly, wrap(async (req, res) => {
+  await ensureVapidConfig();
+  const [[subStats]] = await db.query(`
+    SELECT
+      COUNT(ps.id) AS total_devices,
+      COUNT(DISTINCT ps.user_id) AS subscribed_users
+    FROM push_subscriptions ps
+    JOIN users u ON u.id = ps.user_id
+    WHERE u.is_blocked = 0
+  `);
+  const [[userStats]] = await db.query(
+    "SELECT COUNT(*) AS total_users FROM users WHERE role = 'user' AND is_blocked = 0"
+  );
+  ok(res, {
+    totalDevices: Number(subStats?.total_devices || 0),
+    subscribedUsers: Number(subStats?.subscribed_users || 0),
+    totalActiveUsers: Number(userStats?.total_users || 0),
+  });
+}));
+
+const parseNotif = (b = {}) => {
+  const title = clean(b.title, 150);
+  const body = clean(b.body, 2000);
   if (title.length < 3) return { error: "Judul minimal 3 karakter" };
   if (body.length < 3) return { error: "Isi pesan minimal 3 karakter" };
-  return { title, body };
+
+  const channel = ["web", "push", "both"].includes(b.channel) ? b.channel : "both";
+  const target_type = ["all", "single", "multiple"].includes(b.target_type) ? b.target_type : "all";
+  const rawIds = Array.isArray(b.user_ids)
+    ? b.user_ids
+    : b.user_id
+    ? [b.user_id]
+    : [];
+  const user_ids = [...new Set(rawIds.map((x) => parseInt(x, 10)).filter((n) => Number.isInteger(n) && n > 0))];
+
+  if (target_type === "single" && user_ids.length !== 1) {
+    return { error: "Pilih 1 user tujuan untuk target User Tertentu" };
+  }
+  if (target_type === "multiple" && user_ids.length < 1) {
+    return { error: "Pilih minimal 1 user untuk target Beberapa User" };
+  }
+
+  const click_url = sanitizePushUrl(b.click_url);
+  return { title, body, channel, target_type, user_ids, click_url };
 };
 
 app.post("/api/admin/notifications", adminOnly, wrap(async (req, res) => {
-  const n = parseNotif(req.body);
-  if (n.error) return fail(res, 400, n.error);
-  await db.query("INSERT INTO notifications (title,body) VALUES (?,?)", [n.title, n.body]);
-  ok(res, null, { message: "Notifikasi dikirim ke semua pengguna" }, 201);
+  const parsed = parseNotif(req.body);
+  if (parsed.error) return fail(res, 400, parsed.error);
+
+  let validUserIds = [];
+  if (parsed.target_type !== "all") {
+    const [foundUsers] = await db.query(
+      `SELECT id FROM users WHERE id IN (${parsed.user_ids.map(() => "?").join(",")})`,
+      parsed.user_ids
+    );
+    validUserIds = foundUsers.map((u) => u.id);
+    if (validUserIds.length === 0) {
+      return fail(res, 400, "Pengguna tujuan tidak ditemukan");
+    }
+  }
+
+  const singleUserId = parsed.target_type === "single" ? validUserIds[0] : null;
+  const notifId = await withTx(async (c) => {
+    const [ins] = await c.query(
+      "INSERT INTO notifications (user_id, title, body, channel, target_type, click_url) VALUES (?, ?, ?, ?, ?, ?)",
+      [singleUserId, parsed.title, parsed.body, parsed.channel, parsed.target_type, parsed.click_url]
+    );
+    if (parsed.target_type === "multiple" && validUserIds.length > 0) {
+      const placeholders = validUserIds.map(() => "(?, ?)").join(",");
+      const vals = validUserIds.flatMap((uid) => [ins.insertId, uid]);
+      await c.query(
+        `INSERT IGNORE INTO notification_targets (notification_id, user_id) VALUES ${placeholders}`,
+        vals
+      );
+    }
+    return ins.insertId;
+  });
+
+  let pushStats = { sent: 0, failed: 0, totalTargets: 0 };
+  if (parsed.channel === "both" || parsed.channel === "push") {
+    const targetIds = parsed.target_type === "all" ? null : validUserIds;
+    pushStats = await sendPushToUsers(targetIds, {
+      title: parsed.title,
+      body: parsed.body,
+      url: parsed.click_url,
+      notificationId: notifId,
+    });
+    await db.query("UPDATE notifications SET push_sent=?, push_failed=? WHERE id=?", [
+      pushStats.sent,
+      pushStats.failed,
+      notifId,
+    ]);
+  }
+
+  const targetText =
+    parsed.target_type === "all"
+      ? "semua pengguna"
+      : `${validUserIds.length} pengguna terpilih`;
+  let message = `Broadcast dikirim ke ${targetText}`;
+  if (parsed.channel === "both" || parsed.channel === "push") {
+    message =
+      pushStats.totalTargets > 0
+        ? `Broadcast dikirim ke ${targetText} (${pushStats.sent} perangkat push menerima notifikasi)`
+        : `Broadcast tersimpan untuk ${targetText} (belum ada perangkat target yang mengaktifkan izin Push)`;
+  }
+
+  ok(
+    res,
+    {
+      id: notifId,
+      channel: parsed.channel,
+      target_type: parsed.target_type,
+      recipients_count: parsed.target_type === "all" ? null : validUserIds.length,
+      push_sent: pushStats.sent,
+      push_failed: pushStats.failed,
+      total_push_targets: pushStats.totalTargets,
+    },
+    { message },
+    201
+  );
 }));
 
 app.put("/api/admin/notifications/:id", adminOnly, wrap(async (req, res) => {
-  const n = parseNotif(req.body);
-  if (n.error) return fail(res, 400, n.error);
-  const [r] = await db.query("UPDATE notifications SET title=?, body=? WHERE id=?", [n.title, n.body, req.params.id]);
+  const title = clean(req.body?.title, 150);
+  const body = clean(req.body?.body, 2000);
+  if (title.length < 3) return fail(res, 400, "Judul minimal 3 karakter");
+  if (body.length < 3) return fail(res, 400, "Isi pesan minimal 3 karakter");
+  const clickUrl = sanitizePushUrl(req.body?.click_url);
+
+  const [r] = await db.query(
+    "UPDATE notifications SET title=?, body=?, click_url=? WHERE id=?",
+    [title, body, clickUrl, req.params.id]
+  );
   if (!r.affectedRows) return fail(res, 404, "Notifikasi tidak ditemukan");
   ok(res, null, { message: "Notifikasi diperbarui" });
+}));
+
+app.post("/api/admin/notifications/:id/resend-push", adminOnly, wrap(async (req, res) => {
+  const [[notif]] = await db.query(
+    "SELECT id, user_id, title, body, target_type, click_url FROM notifications WHERE id=? LIMIT 1",
+    [req.params.id]
+  );
+  if (!notif) return fail(res, 404, "Notifikasi tidak ditemukan");
+
+  let targetIds = null;
+  if (notif.target_type === "single" && notif.user_id) {
+    targetIds = [notif.user_id];
+  } else if (notif.target_type === "multiple") {
+    const [rows] = await db.query(
+      "SELECT user_id FROM notification_targets WHERE notification_id=?",
+      [notif.id]
+    );
+    targetIds = rows.map((r) => r.user_id);
+  } else if (notif.user_id) {
+    targetIds = [notif.user_id];
+  }
+
+  const pushStats = await sendPushToUsers(targetIds, {
+    title: notif.title,
+    body: notif.body,
+    url: notif.click_url || "/app/notifikasi",
+    notificationId: notif.id,
+  });
+
+  await db.query(
+    "UPDATE notifications SET push_sent = push_sent + ?, push_failed = push_failed + ? WHERE id = ?",
+    [pushStats.sent, pushStats.failed, notif.id]
+  );
+
+  const msg =
+    pushStats.totalTargets > 0
+      ? `Push dikirim ulang ke ${pushStats.sent} dari ${pushStats.totalTargets} perangkat terdaftar`
+      : "Belum ada perangkat target yang mengaktifkan izin Push Notification";
+  ok(res, pushStats, { message: msg });
 }));
 
 app.delete("/api/admin/notifications/:id", adminOnly, wrap(async (req, res) => {
@@ -1344,8 +1773,11 @@ app.delete("/api/admin/promos/:id", adminOnly, wrap(async (req, res) => {
 
 /* ── App Settings (Public & Admin) ── */
 app.get("/api/settings/public", wrap(async (req, res) => {
-  const [rows] = await db.query("SELECT setting_key, setting_value FROM app_settings");
+  const [rows] = await db.query("SELECT setting_key, setting_value FROM app_settings WHERE setting_key NOT IN ('vapid_private_key')");
   const settings = rows.reduce((acc, r) => {
+    if (r.setting_key === "vapid_private_key" || r.setting_key === "vapid_public_key" || r.setting_key === "vapid_subject") {
+      return acc;
+    }
     acc[r.setting_key] = r.setting_value;
     return acc;
   }, {});
@@ -1353,12 +1785,14 @@ app.get("/api/settings/public", wrap(async (req, res) => {
   const whatsapp_message = settings.whatsapp_message || "Halo Admin Fastkredit, saya butuh bantuan terkait akun saya.";
   const whatsapp_url = formatWhatsAppUrl(whatsapp_number, whatsapp_message);
   const web_app_url = settings.web_app_url || "https://kreditpay.id";
+  const show_wa_cs_profile = String(settings.show_wa_cs_profile || "0") === "1" ? "1" : "0";
   ok(res, {
     ...settings,
     whatsapp_number,
     whatsapp_message,
     whatsapp_url,
     web_app_url,
+    show_wa_cs_profile,
   });
 }));
 
@@ -1372,11 +1806,12 @@ app.get("/api/settings/web-url", wrap(async (req, res) => {
 }));
 
 app.get("/api/admin/settings", adminOnly, wrap(async (req, res) => {
-  const [rows] = await db.query("SELECT setting_key, setting_value, description, updated_at FROM app_settings");
+  const [rows] = await db.query("SELECT setting_key, setting_value, description, updated_at FROM app_settings WHERE setting_key NOT IN ('vapid_private_key')");
   const settings = rows.reduce((acc, r) => {
     acc[r.setting_key] = r.setting_value;
     return acc;
   }, {});
+  settings.show_wa_cs_profile = String(settings.show_wa_cs_profile || "0") === "1" ? "1" : "0";
   const whatsapp_number = settings.whatsapp_number || "081234567890";
   const whatsapp_message = settings.whatsapp_message || "Halo Admin Fastkredit, saya butuh bantuan terkait akun saya.";
   const whatsapp_url = formatWhatsAppUrl(whatsapp_number, whatsapp_message);
@@ -1392,6 +1827,7 @@ app.put("/api/admin/settings", adminOnly, wrap(async (req, res) => {
   const allowed = [
     "whatsapp_number",
     "whatsapp_message",
+    "show_wa_cs_profile",
     "web_app_url",
     "app_name",
     "cs_email",
@@ -1411,18 +1847,24 @@ app.put("/api/admin/settings", adminOnly, wrap(async (req, res) => {
   ];
   for (const key of allowed) {
     if (body[key] !== undefined) {
-      const val = clean(String(body[key]), 6000);
+      const val =
+        key === "show_wa_cs_profile"
+          ? body[key] === true || body[key] === 1 || String(body[key]) === "1"
+            ? "1"
+            : "0"
+          : clean(String(body[key]), 6000);
       await db.query(
         "INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
         [key, val]
       );
     }
   }
-  const [rows] = await db.query("SELECT setting_key, setting_value FROM app_settings");
+  const [rows] = await db.query("SELECT setting_key, setting_value FROM app_settings WHERE setting_key NOT IN ('vapid_private_key')");
   const settings = rows.reduce((acc, r) => {
     acc[r.setting_key] = r.setting_value;
     return acc;
   }, {});
+  settings.show_wa_cs_profile = String(settings.show_wa_cs_profile || "0") === "1" ? "1" : "0";
   const whatsapp_number = settings.whatsapp_number || "081234567890";
   const whatsapp_message = settings.whatsapp_message || "Halo Admin Fastkredit, saya butuh bantuan terkait akun saya.";
   const whatsapp_url = formatWhatsAppUrl(whatsapp_number, whatsapp_message);
@@ -1965,14 +2407,63 @@ async function initDb() {
     } catch {
       // Index user_id sudah ada
     }
+    const notifExtraCols = [
+      "ADD COLUMN channel ENUM('web','push','both') NOT NULL DEFAULT 'web' AFTER body",
+      "ADD COLUMN target_type ENUM('all','single','multiple') NOT NULL DEFAULT 'all' AFTER channel",
+      "ADD COLUMN click_url VARCHAR(255) NULL DEFAULT '/app/notifikasi' AFTER target_type",
+      "ADD COLUMN push_sent INT NOT NULL DEFAULT 0 AFTER click_url",
+      "ADD COLUMN push_failed INT NOT NULL DEFAULT 0 AFTER push_sent",
+    ];
+    for (const colDef of notifExtraCols) {
+      try {
+        await db.query(`ALTER TABLE notifications ${colDef}`);
+      } catch {
+        // Kolom sudah ada
+      }
+    }
+    try {
+      await db.query("UPDATE notifications SET target_type = 'single' WHERE user_id IS NOT NULL AND target_type = 'all'");
+    } catch {
+      // ignore
+    }
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS notification_targets (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        notification_id INT NOT NULL,
+        user_id INT NOT NULL,
+        UNIQUE KEY uniq_notif_user (notification_id, user_id),
+        INDEX idx_nt_user (user_id),
+        CONSTRAINT fk_nt_notif FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE,
+        CONSTRAINT fk_nt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB;
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        endpoint VARCHAR(500) NOT NULL,
+        p256dh VARCHAR(255) NOT NULL,
+        auth VARCHAR(255) NOT NULL,
+        user_agent VARCHAR(255) NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_push_endpoint (endpoint(255)),
+        INDEX idx_push_user (user_id),
+        CONSTRAINT fk_push_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB;
+    `);
 
     // Bersihkan notifikasi generic lama dan backfill notifikasi sapaan personal sesuai jam pendaftaran
     try {
       await db.query("DELETE FROM notifications WHERE user_id IS NULL AND title = 'Halo semua'");
       await db.query(`
-        INSERT INTO notifications (user_id, title, body, created_at)
+        INSERT INTO notifications (user_id, target_type, channel, title, body, created_at)
         SELECT 
           u.id,
+          'single',
+          'web',
           CONCAT('Halo ', u.name),
           CONCAT('Selamat datang di Fastkredit! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.'),
           u.created_at
@@ -2377,6 +2868,7 @@ async function initDb() {
       ['letter_signer', 'Tim Operasional', 'Pihak Penandatangan Surat Resmi'],
       ['letter_important_notes', 'Jaga kerahasiaan akun dan data pribadi Anda. {company_name} tidak meminta PIN, OTP, atau Password kepada siapapun melalui media lainnya.', 'Catatan Informasi Penting Kaki Surat'],
       ['web_app_url', 'https://kreditpay.id', 'URL Web App / Domain Frontend Aktif (untuk WebView APK Mobile dan redirect domain)'],
+      ['show_wa_cs_profile', '0', 'Tampilkan layanan bantuan WhatsApp CS di halaman profil akun user (1=tampil, 0=sembunyi)'],
     ];
 
     for (const [key, val, desc] of defaultSettings) {
@@ -2402,6 +2894,10 @@ async function initDb() {
         CONSTRAINT fk_chat_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB;
     `);
+
+    await ensureVapidConfig().catch((err) => {
+      console.warn("VAPID init warning:", err.message);
+    });
   } catch (err) {
     console.error("Database init error:", err.message);
   }

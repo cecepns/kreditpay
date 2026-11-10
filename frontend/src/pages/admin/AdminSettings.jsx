@@ -16,6 +16,7 @@ import {
   Check,
   AlertCircle,
   Eye,
+  EyeOff,
   Layers,
   Globe,
 } from "lucide-react";
@@ -32,6 +33,7 @@ export default function AdminSettings() {
   const [formData, setFormData] = useState({
     whatsapp_number: "",
     whatsapp_message: "",
+    show_wa_cs_profile: "0",
     web_app_url: "",
     app_name: "",
     cs_email: "",
@@ -51,6 +53,7 @@ export default function AdminSettings() {
   });
   const [previewModelTab, setPreviewModelTab] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [togglingWa, setTogglingWa] = useState(false);
 
   useEffect(() => {
     if (data?.data?.settings) {
@@ -58,6 +61,7 @@ export default function AdminSettings() {
       setFormData({
         whatsapp_number: s.whatsapp_number || "",
         whatsapp_message: s.whatsapp_message || "",
+        show_wa_cs_profile: String(s.show_wa_cs_profile || "0") === "1" ? "1" : "0",
         web_app_url: s.web_app_url || "https://kreditpay.id",
         app_name: s.app_name || "Fastkredit",
         cs_email: s.cs_email || "support@fastkredit.com",
@@ -107,9 +111,30 @@ export default function AdminSettings() {
     ? `https://wa.me/${cleanNumber}?text=${encodeURIComponent(formData.whatsapp_message || "")}`
     : "";
 
+  const isWaProfileVisible = String(formData.show_wa_cs_profile) === "1";
+
+  const handleToggleWaProfile = async () => {
+    const nextVal = isWaProfileVisible ? "0" : "1";
+    setTogglingWa(true);
+    try {
+      await put(API_ENDPOINTS.ADMIN.SETTINGS.UPDATE, { show_wa_cs_profile: nextVal });
+      setFormData((prev) => ({ ...prev, show_wa_cs_profile: nextVal }));
+      toast.success(
+        nextVal === "1"
+          ? "Layanan Bantuan CS sekarang ditampilkan di akun user"
+          : "Layanan Bantuan CS disembunyikan dari akun user"
+      );
+      reload();
+    } catch (err) {
+      toast.error(err.message || "Gagal mengubah status tampilan WhatsApp CS");
+    } finally {
+      setTogglingWa(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.whatsapp_number.trim()) {
+    if (isWaProfileVisible && !formData.whatsapp_number.trim()) {
       return toast.error("Nomor WhatsApp wajib diisi");
     }
 
@@ -195,11 +220,44 @@ export default function AdminSettings() {
 
         {/* Section 2: WhatsApp Support Integration */}
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 space-y-6">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
-              <MessageSquare className="h-6 w-6" />
-            </span>
-            <h2 className="text-lg font-black text-slate-800">Layanan WhatsApp Customer Service</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
+                <MessageSquare className="h-6 w-6" />
+              </span>
+              <div className="space-y-1">
+                <h2 className="text-lg font-black text-slate-800">Layanan WhatsApp Customer Service</h2>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-black ${
+                    isWaProfileVisible
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {isWaProfileVisible ? "Ditampilkan di Akun User" : "Disembunyikan di Akun User"}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={togglingWa}
+              onClick={handleToggleWaProfile}
+              className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-black transition active:scale-[0.98] disabled:opacity-60 ${
+                isWaProfileVisible
+                  ? "bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100"
+                  : "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+              }`}
+            >
+              {isWaProfileVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              <span>
+                {togglingWa
+                  ? "Menyimpan..."
+                  : isWaProfileVisible
+                  ? "Sembunyikan di Akun User"
+                  : "Tampilkan di Akun User"}
+              </span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

@@ -7,6 +7,7 @@ import useFetch from "@/hooks/useFetch";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
+import PushPermissionCard from "@/components/PushPermissionCard";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { put, upload } from "@/utils/request";
 import { confirmToast } from "@/utils/confirm";
@@ -139,25 +140,29 @@ export default function Account() {
         ))}
       </section>
 
-      <a
-        href={waUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center justify-between rounded-3xl bg-emerald-50/80 p-4 ring-1 ring-emerald-200/50 transition hover:bg-emerald-100/60"
-      >
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-500 text-white shadow-sm">
-            <MessageSquare className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-sm font-black text-emerald-950">Layanan Bantuan CS</p>
-            <p className="text-xs font-semibold text-emerald-700">Hubungi kami via WhatsApp</p>
+      <PushPermissionCard variant="settings" />
+
+      {String(settingsData?.data?.show_wa_cs_profile) === "1" && (
+        <a
+          href={waUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center justify-between rounded-3xl bg-emerald-50/80 p-4 ring-1 ring-emerald-200/50 transition hover:bg-emerald-100/60"
+        >
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-500 text-white shadow-sm">
+              <MessageSquare className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm font-black text-emerald-950">Layanan Bantuan CS</p>
+              <p className="text-xs font-semibold text-emerald-700">Hubungi kami via WhatsApp</p>
+            </div>
           </div>
-        </div>
-        <span className="rounded-xl bg-white px-3 py-1.5 text-xs font-black text-emerald-700 shadow-sm">
-          Chat WA
-        </span>
-      </a>
+          <span className="rounded-xl bg-white px-3 py-1.5 text-xs font-black text-emerald-700 shadow-sm">
+            Chat WA
+          </span>
+        </a>
+      )}
 
       {user.role === "admin" && <Link to="/admin" className="flex items-center justify-center gap-2 rounded-2xl bg-primary-50 py-3.5 font-bold text-primary-700"><LayoutDashboard className="h-5 w-5" />Buka Admin Panel</Link>}
       <Button variant="danger" icon={LogOut} onClick={onLogout} className="w-full">Keluar</Button>

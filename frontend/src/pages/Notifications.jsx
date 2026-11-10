@@ -1,15 +1,26 @@
-import { useState } from "react";
-import { Bell, Megaphone, CheckCircle2, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Bell, Megaphone, CheckCircle2, XCircle, ArrowUpRight } from "lucide-react";
 import usePaginated from "@/hooks/usePaginated";
 import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 import Pagination from "@/components/ui/Pagination";
+import PushPermissionCard from "@/components/PushPermissionCard";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/ui/StateViews";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { formatDateTime } from "@/utils/format";
 
 export default function Notifications() {
+  const navigate = useNavigate();
   const list = usePaginated(API_ENDPOINTS.NOTIFICATIONS.LIST);
   const [detail, setDetail] = useState(null);
+
+  useEffect(() => {
+    const onPush = () => list.reload();
+    window.addEventListener("app-push-received", onPush);
+    return () => window.removeEventListener("app-push-received", onPush);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getStyle = (title = "") => {
     const t = title.toLowerCase();
@@ -41,7 +52,9 @@ export default function Notifications() {
   };
 
   return (
-    <div className="min-h-[26rem] rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+    <div>
+      <PushPermissionCard variant="banner" />
+      <div className="min-h-[26rem] rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
       {list.loading ? (
         <ListSkeleton rows={3} />
       ) : list.error ? (
@@ -92,8 +105,27 @@ export default function Notifications() {
             <span>Waktu:</span>
             <span>{detail && formatDateTime(detail.created_at)}</span>
           </div>
+          {detail?.click_url && detail.click_url !== "/app/notifikasi" && (
+            <div className="pt-1">
+              <Button
+                type="button"
+                variant="soft"
+                icon={ArrowUpRight}
+                className="w-full py-2.5 text-xs"
+                onClick={() => {
+                  const target = detail.click_url;
+                  setDetail(null);
+                  if (target.startsWith("http")) window.open(target, "_blank", "noopener,noreferrer");
+                  else navigate(target);
+                }}
+              >
+                Buka Halaman Terkait
+              </Button>
+            </div>
+          )}
         </div>
       </Modal>
+    </div>
     </div>
   );
 }

@@ -4,6 +4,8 @@ USE kreditpay;
 DROP TABLE IF EXISTS transactions;
 DROP TABLE IF EXISTS chat_messages;
 DROP TABLE IF EXISTS paylater_applications;
+DROP TABLE IF EXISTS push_subscriptions;
+DROP TABLE IF EXISTS notification_targets;
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS bank_accounts;
 DROP TABLE IF EXISTS promos;
@@ -75,10 +77,41 @@ CREATE TABLE notifications (
   user_id INT NULL,
   title VARCHAR(150) NOT NULL,
   body TEXT NOT NULL,
+  channel ENUM('web','push','both') NOT NULL DEFAULT 'web',
+  target_type ENUM('all','single','multiple') NOT NULL DEFAULT 'all',
+  click_url VARCHAR(255) NULL DEFAULT '/app/notifikasi',
+  push_sent INT NOT NULL DEFAULT 0,
+  push_failed INT NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_notif_created (created_at),
   INDEX idx_notif_user (user_id),
+  INDEX idx_notif_channel (channel),
+  INDEX idx_notif_target (target_type),
   CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE notification_targets (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  notification_id INT NOT NULL,
+  user_id INT NOT NULL,
+  UNIQUE KEY uniq_notif_user (notification_id, user_id),
+  INDEX idx_nt_user (user_id),
+  CONSTRAINT fk_nt_notif FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE,
+  CONSTRAINT fk_nt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE push_subscriptions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  endpoint VARCHAR(500) NOT NULL,
+  p256dh VARCHAR(255) NOT NULL,
+  auth VARCHAR(255) NOT NULL,
+  user_agent VARCHAR(255) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_push_endpoint (endpoint(255)),
+  INDEX idx_push_user (user_id),
+  CONSTRAINT fk_push_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE bank_accounts (
@@ -210,8 +243,8 @@ INSERT INTO level_configs (level, name, badge_label, title, subtitle, message, n
 (6, 'Level 6', 'Pengembangan 2', 'Transfer Saldo <br><span class=\"text-teal-400\">PayLater Sedang Proses</span>', 'PINDAH SALDO', 'Permintaan pemindahan limit PayLater ke Saldo Utama Anda sedang diproses oleh sistem.', 'Silakan lakukan konfirmasi pemindahan saldo untuk melanjutkan transaksi.', 'Pindahkan Saldo', 'Batal', 'Rincian Perpindahan', '{\"fee_warning\":\"Perpindahan Saldo PayLater ke Saldo utama membutuhkan Dana Layanan. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.\\n\\nDana Layanan ini Akan Tetap Masuk ke Saldo Anda, tidak diambil perusahaan.\",\"fee_amount\":100000}'),
 (7, 'Level 7', 'Fitur VIP/Prioritas', 'Transfer Saldo <br><span class=\"text-teal-400\">PayLater Sedang Proses</span>', 'PINDAH SALDO', 'Permintaan pemindahan limit PayLater ke Saldo Utama Anda sedang diproses oleh sistem.', 'Silakan lakukan konfirmasi pemindahan saldo untuk melanjutkan transaksi.', 'Pindahkan Saldo', 'Batal', 'Rincian Perpindahan', '{\"fee_warning\":\"Perpindahan Saldo PayLater ke Saldo utama membutuhkan Dana Layanan. Dana tersebut harus melalui proses Topup Saldo menggunakan dana pribadi Anda.\\n\\nDana Layanan ini Akan Tetap Masuk ke Saldo Anda, tidak diambil perusahaan.\",\"fee_amount\":100000}');
 
-INSERT INTO notifications (user_id, title, body, created_at) VALUES
-(2, 'Halo Chrisbayu', 'Selamat datang di Fastkredit! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.', '2026-11-07 10:00:00');
+INSERT INTO notifications (user_id, target_type, channel, title, body, created_at) VALUES
+(2, 'single', 'web', 'Halo Chrisbayu', 'Selamat datang di Fastkredit! Nikmati kemudahan bertransaksi dan ajukan pinjaman hingga Rp 500.000.000 dengan proses kilat tanpa ribet.', '2026-11-07 10:00:00');
 
 -- Sample data promos
 INSERT INTO promos (tag, title, description, style, is_active, sort_order) VALUES
@@ -238,4 +271,5 @@ INSERT INTO app_settings (setting_key, setting_value, description) VALUES
 ('letter_closing', 'Demikian surat pemberitahuan ini kami sampaikan. Terima kasih atas kepercayaan Anda kepada {company_name}.', 'Paragraf Penutup Surat Persetujuan'),
 ('letter_signer', 'Tim Operasional', 'Pihak Penandatangan Surat Resmi'),
 ('letter_important_notes', 'Jaga kerahasiaan akun dan data pribadi Anda. {company_name} tidak meminta PIN, OTP, atau Password kepada siapapun melalui media lainnya.', 'Catatan Informasi Penting Kaki Surat'),
-('web_app_url', 'https://kreditpay.id', 'URL Web App / Domain Frontend Aktif (untuk WebView APK Mobile dan redirect domain)');
+('web_app_url', 'https://kreditpay.id', 'URL Web App / Domain Frontend Aktif (untuk WebView APK Mobile dan redirect domain)'),
+('show_wa_cs_profile', '0', 'Tampilkan layanan bantuan WhatsApp CS di halaman profil akun user (1=tampil, 0=sembunyi)');

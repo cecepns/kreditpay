@@ -1,26 +1,18 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { ArrowLeft, Check, Edit3, Eye, Search, Sparkles, UserCheck, ArrowLeftRight, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Edit3, Eye, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import useFetch from "@/hooks/useFetch";
-import usePaginated from "@/hooks/usePaginated";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import Pagination from "@/components/ui/Pagination";
-import { EmptyState, ErrorState, Skeleton } from "@/components/ui/StateViews";
 import LevelLockModal from "@/components/dashboard/LevelLockModal";
 import { USER_LEVELS } from "@/constants/levels";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { put } from "@/utils/request";
 
 export default function AdminLevels() {
-  const usersList = usePaginated(API_ENDPOINTS.ADMIN.USERS.LIST, { initialLimit: 10 });
   const { data: levelsData, reload: reloadLevels } = useFetch(API_ENDPOINTS.LEVELS.LIST);
-
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [targetLevel, setTargetLevel] = useState(1);
-  const [updatingUser, setUpdatingUser] = useState(false);
 
   const [editingLevel, setEditingLevel] = useState(null);
   const [savingLevel, setSavingLevel] = useState(false);
@@ -45,32 +37,11 @@ export default function AdminLevels() {
   const [previewState, setPreviewState] = useState(null);
   const [previewActiveLevel, setPreviewActiveLevel] = useState(4);
 
-  const users = usersList.rows;
   const levelConfigs = levelsData?.data || [];
   const configMap = levelConfigs.reduce((acc, cur) => {
     if (cur && cur.level) acc[cur.level] = cur;
     return acc;
   }, {});
-
-  const handleOpenLevelModal = (u) => {
-    setSelectedUser(u);
-    setTargetLevel(Number(u.level || 1));
-  };
-
-  const handleSaveLevel = async () => {
-    if (!selectedUser) return;
-    setUpdatingUser(true);
-    try {
-      const res = await put(API_ENDPOINTS.ADMIN.USERS.LEVEL(selectedUser.id), { level: targetLevel });
-      toast.success(res.message || `Level user berhasil diubah ke Level ${targetLevel}`);
-      setSelectedUser(null);
-      usersList.reload();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setUpdatingUser(false);
-    }
-  };
 
   const handleOpenEditModal = (item) => {
     const cfg = configMap[item.level] || {};
@@ -363,207 +334,6 @@ export default function AdminLevels() {
         })}
       </div>
 
-      {/* Tabel & Kartu Responsif Pengaturan Level Pengguna */}
-      <div className="rounded-3xl bg-white p-5 sm:p-6 shadow-sm ring-1 ring-slate-100 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100">
-          <div>
-            <h2 className="text-lg font-black text-slate-900">Atur Level Pengguna</h2>
-            <p className="text-xs font-semibold text-slate-500">
-              Ubah level pengguna untuk mengaktifkan atau membuka kunci fitur secara bertahap.
-            </p>
-          </div>
-          <Link
-            to="/admin/users"
-            className="self-start sm:self-auto shrink-0 inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-3.5 py-1.5 text-xs font-black text-primary-700 hover:bg-primary-100 transition whitespace-nowrap"
-          >
-            Kelola Lengkap &rarr;
-          </Link>
-        </div>
-
-        {/* Pencarian Realtime (Debounce 300ms) */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={usersList.search}
-              onChange={(e) => usersList.setSearch(e.target.value)}
-              placeholder="Cari nama, username, email, no HP, ID akun..."
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-9 text-sm font-semibold text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:bg-white focus:outline-none"
-            />
-            {usersList.search && (
-              <button
-                type="button"
-                onClick={() => usersList.setSearch("")}
-                aria-label="Hapus pencarian"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-200/70 hover:text-slate-600"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {usersList.error ? (
-          <ErrorState message={usersList.error} onRetry={usersList.reload} />
-        ) : (
-          <>
-            {/* 1. Tampilan Mobile (Card List yang Rapi & Bersih) */}
-            <div className="space-y-3 sm:hidden">
-              {usersList.loading &&
-                Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-36 rounded-2xl" />
-                ))}
-              {!usersList.loading && users.length === 0 && (
-                <EmptyState text={usersList.search ? "Pengguna tidak ditemukan" : "Belum ada data pengguna"} />
-              )}
-              {!usersList.loading &&
-                users.map((u) => {
-                  const lvl = Number(u.level || 1);
-                  return (
-                    <div
-                      key={u.id}
-                      className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 space-y-3 transition hover:border-slate-200 hover:bg-slate-50"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-extrabold text-slate-900 text-sm">{u.name}</p>
-                          <p className="text-xs text-slate-400 font-semibold">
-                            @{u.username} · <span className="uppercase text-[11px] font-black">{u.role}</span>
-                          </p>
-                        </div>
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-black shrink-0 ${
-                            lvl === 1
-                              ? "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
-                              : lvl === 2
-                              ? "bg-blue-100 text-blue-700 ring-1 ring-blue-200"
-                              : lvl === 3
-                              ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
-                              : lvl === 4
-                              ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
-                              : "bg-purple-100 text-purple-700 ring-1 ring-purple-200"
-                          }`}
-                        >
-                          Level {lvl}
-                        </span>
-                      </div>
-
-                      <div className="rounded-xl bg-white p-2.5 text-xs font-semibold text-slate-600 border border-slate-100">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">
-                          Status Akses Transaksi:
-                        </span>
-                        {lvl === 1 && "Semua fitur terkunci (Wajib Top Up)"}
-                        {lvl === 2 && "Transfer Autodebet & Pulsa Mode Pinjaman"}
-                        {lvl === 3 && "Transfer Tertunda (Verifikasi Asuransi)"}
-                        {lvl >= 4 && "Pindah Saldo Pinjaman (Dana Layanan Top Up)"}
-                      </div>
-
-                      <div className="pt-1">
-                        <Button
-                          size="sm"
-                          variant="soft"
-                          icon={UserCheck}
-                          onClick={() => handleOpenLevelModal(u)}
-                          className="w-full text-xs font-bold justify-center"
-                        >
-                          Ubah Level
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-
-            {/* 2. Tampilan Desktop / Tablet (Tabel Responsif Rapi dengan Lebar Minimum) */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="border-b border-slate-100 text-xs font-extrabold uppercase text-slate-400">
-                  <tr>
-                    <th className="pb-3 pl-3">Nama &amp; Username</th>
-                    <th className="pb-3 whitespace-nowrap">Level Saat Ini</th>
-                    <th className="pb-3">Status Akses Transaksi</th>
-                    <th className="pb-3 text-right pr-3 whitespace-nowrap">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-semibold">
-                  {usersList.loading &&
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <tr key={i}>
-                        <td colSpan={4} className="py-3">
-                          <Skeleton className="h-9" />
-                        </td>
-                      </tr>
-                    ))}
-                  {!usersList.loading && users.length === 0 && (
-                    <tr>
-                      <td colSpan={4}>
-                        <EmptyState text={usersList.search ? "Pengguna tidak ditemukan" : "Belum ada data pengguna"} />
-                      </td>
-                    </tr>
-                  )}
-                  {!usersList.loading &&
-                    users.map((u) => {
-                      const lvl = Number(u.level || 1);
-                      return (
-                        <tr key={u.id} className="hover:bg-slate-50/60 transition">
-                          <td className="py-3.5 pl-3">
-                            <p className="font-extrabold text-slate-800">{u.name}</p>
-                            <p className="text-xs text-slate-400">@{u.username} · {u.role}</p>
-                          </td>
-                          <td className="py-3.5 whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ${
-                                lvl === 1
-                                  ? "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
-                                  : lvl === 2
-                                  ? "bg-blue-100 text-blue-700 ring-1 ring-blue-200"
-                                  : lvl === 3
-                                  ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
-                                  : lvl === 4
-                                  ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
-                                  : "bg-purple-100 text-purple-700 ring-1 ring-purple-200"
-                              }`}
-                            >
-                              Level {lvl}
-                            </span>
-                          </td>
-                          <td className="py-3.5 text-xs text-slate-500 max-w-xs">
-                            {lvl === 1 && "Semua fitur terkunci (Wajib Top Up)"}
-                            {lvl === 2 && "Transfer Autodebet & Pulsa Mode Pinjaman"}
-                            {lvl === 3 && "Transfer Tertunda (Verifikasi Asuransi)"}
-                            {lvl >= 4 && "Pindah Saldo Pinjaman (Dana Layanan Top Up)"}
-                          </td>
-                          <td className="py-3.5 text-right pr-3 whitespace-nowrap">
-                            <Button
-                              size="sm"
-                              variant="soft"
-                              icon={UserCheck}
-                              onClick={() => handleOpenLevelModal(u)}
-                              className="whitespace-nowrap"
-                            >
-                              Ubah Level
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="-mx-5 -mb-5 sm:-mx-6 sm:-mb-6 px-1 sm:px-2 pt-1">
-              <Pagination
-                pagination={usersList.pagination}
-                onPage={usersList.setPage}
-                limit={usersList.limit}
-                onLimit={usersList.setLimit}
-              />
-            </div>
-          </>
-        )}
-      </div>
-
       {/* Modal Edit Pesan / Teks Level */}
       <Modal
         open={!!editingLevel}
@@ -815,7 +585,7 @@ export default function AdminLevels() {
 
               <div className="rounded-2xl border border-teal-100 bg-teal-50/50 p-4 space-y-3">
                 <p className="text-xs font-black uppercase tracking-wider text-teal-800">
-                  Tahap 2 Autodebet (Setelah Loading 5 Detik)
+                  Tahap 2 Autodebet
                 </p>
                 <Input
                   label="Judul Tahap 2"
@@ -974,53 +744,6 @@ export default function AdminLevels() {
             </div>
           )}
         </form>
-      </Modal>
-
-      {/* Modal Ubah Level Pengguna */}
-      <Modal
-        open={!!selectedUser}
-        onClose={() => setSelectedUser(null)}
-        title={`Ubah Level: ${selectedUser?.name}`}
-      >
-        <div className="space-y-4">
-          <p className="text-sm font-semibold text-slate-600">
-            Pilih level yang akan diterapkan pada akun <b>@{selectedUser?.username}</b>:
-          </p>
-
-          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-            {USER_LEVELS.map((item) => (
-              <button
-                key={item.level}
-                type="button"
-                onClick={() => setTargetLevel(item.level)}
-                className={`flex w-full items-center justify-between rounded-2xl border p-3.5 text-left transition ${
-                  targetLevel === item.level
-                    ? "border-primary-600 bg-primary-50/70 ring-1 ring-primary-600"
-                    : "border-slate-100 bg-slate-50 hover:bg-slate-100"
-                }`}
-              >
-                <div>
-                  <p className="font-extrabold text-slate-900">{item.title} — {item.subtitle}</p>
-                  <p className="text-xs font-semibold text-slate-500">{item.description}</p>
-                </div>
-                {targetLevel === item.level && (
-                  <span className="grid h-6 w-6 place-items-center rounded-full bg-primary-600 text-white shrink-0">
-                    <Check className="h-4 w-4" />
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <Button variant="ghost" onClick={() => setSelectedUser(null)}>
-              Batal
-            </Button>
-            <Button loading={updatingUser} onClick={handleSaveLevel}>
-              Simpan Perubahan
-            </Button>
-          </div>
-        </div>
       </Modal>
 
       {/* Modal Pratinjau Tampilan Pengguna */}

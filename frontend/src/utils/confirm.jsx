@@ -1,7 +1,11 @@
 import toast from "react-hot-toast";
 
 /** Konfirmasi berbasis toast. Resolve true jika dikonfirmasi, false jika dibatalkan. */
-export function confirmToast({ title, message, confirmText = "Ya, lanjutkan" }) {
+export function confirmToast({ title, message, confirmText = "Ya, lanjutkan", variant = "danger" }) {
+  const btnCls =
+    variant === "primary"
+      ? "bg-primary-700 hover:bg-primary-800"
+      : "bg-red-500 hover:bg-red-600";
   return new Promise((resolve) => {
     toast.custom(
       (t) => (
@@ -12,7 +16,7 @@ export function confirmToast({ title, message, confirmText = "Ya, lanjutkan" }) 
             <button className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100" onClick={() => { toast.dismiss(t.id); resolve(false); }}>
               Batal
             </button>
-            <button className="rounded-xl bg-red-500 px-4 py-2 text-sm font-bold text-white hover:bg-red-600" onClick={() => { toast.dismiss(t.id); resolve(true); }}>
+            <button className={`rounded-xl px-4 py-2 text-sm font-bold text-white ${btnCls}`} onClick={() => { toast.dismiss(t.id); resolve(true); }}>
               {confirmText}
             </button>
           </div>
